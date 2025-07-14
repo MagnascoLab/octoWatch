@@ -10,6 +10,13 @@ from typing import Dict, List, Tuple
 from PIL import Image
 import numpy as np
 from transformers import AutoModelForCausalLM
+import sys
+
+def emit_progress(data):
+    """Emit progress update in JSON format"""
+    if '--progress-json' in sys.argv:
+        print(f"PROGRESS:{json.dumps(data)}")
+        sys.stdout.flush()
 
 
 def compute_iou(box1, box2):
@@ -93,6 +100,11 @@ def find_tank_bbox(video_path, model, sample_rate=2, scale=0.5):
     
     print(f"Searching for tank...")
     print(f"Video dimensions: {frame_width}x{frame_height}")
+    emit_progress({
+        'type': 'progress',
+        'stage': 'tank_detection',
+        'message': 'Searching for tank...'
+    })
     
     # Start from the middle of the video
     middle_frame = total_frames // 2
@@ -135,10 +147,19 @@ def find_tank_bbox(video_path, model, sample_rate=2, scale=0.5):
                 image = Image.fromarray(frame_for_detection)
                 
                 # Detect tank
-                results = model.detect(image, "tank")
+                found_tank = False
+                found_tank_with_water = False
+                results = model.detect(image, "tank with water")
                 detections = results["objects"]
+                if not detections:
+                    # Try with a broader prompt
+                    results = model.detect(image, "tank")
+                    detections = results["objects"]
+                else:
+                    found_tank_with_water = True
                 
                 if detections:
+                    found_tank = True
                     # Found the tank
                     obj = detections[0]
                     
@@ -157,6 +178,16 @@ def find_tank_bbox(video_path, model, sample_rate=2, scale=0.5):
                         first_detection_frame = max(0, frame_count - int(fps * 2))  # Start 2 seconds before
                     
                     print(f"Frame {frame_count}: Found tank - Box #{len(collected_boxes)}")
+                    message = f"Found tank - Box #{len(collected_boxes)}"
+                    if found_tank_with_water:
+                        message = f"Found tank with water - Box #{len(collected_boxes)}"
+                    emit_progress({
+                        'type': 'progress',
+                        'stage': 'tank_detection',
+                        'message': message,
+                        'current_boxes': len(collected_boxes),
+                        'total_boxes_needed': 5
+                    })
             
             frame_count += 1
         
@@ -257,6 +288,76 @@ def process_tank_half_batch(model, frames: List[np.ndarray], tank_bbox: Dict, si
         batch_detections.append(detections)
     
     return batch_detections
+
+
+def process_batch_and_store_results(model, batch_frames: List[np.ndarray], batch_frame_numbers: List[int],
+                                   tank_bbox: Dict, conf_threshold: float, keyframe_data: Dict,
+                                   fps: float, start_time: float, total_frames: int, max_frames: int) -> Tuple[int, int]:
+    """
+    Process a batch of frames and store the results in keyframe_data.
+    
+    Args:
+        model: YOLO model
+        batch_frames: List of frames to process
+        batch_frame_numbers: Corresponding frame numbers
+        tank_bbox: Tank bounding box info
+        conf_threshold: Confidence threshold
+        keyframe_data: Dictionary to store results (modified in-place)
+        fps: Video frames per second
+        start_time: Processing start time for progress reporting
+        total_frames: Total frames in video
+        max_frames: Maximum frames to process
+    
+    Returns:
+        Tuple of (left_detections_count, right_detections_count) for this batch
+    """
+    # Process both tank halves for the batch
+    left_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'left', conf_threshold)
+    right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
+    
+    total_left = 0
+    total_right = 0
+    
+    # Store results for each frame in the batch
+    for frame_num, left_dets, right_dets in zip(batch_frame_numbers, 
+                                                left_batch_detections, 
+                                                right_batch_detections):
+        # Store keyframe data
+        keyframe_data['keyframes'][str(frame_num)] = {
+            'timestamp': frame_num / fps,
+            'left_detections': left_dets,
+            'right_detections': right_dets,
+            'has_left_octopus': len(left_dets) > 0,
+            'has_right_octopus': len(right_dets) > 0
+        }
+        
+        total_left += len(left_dets)
+        total_right += len(right_dets)
+        
+        # Report progress
+        left_status = f"{len(left_dets)} octopus" if left_dets else "No octopus"
+        right_status = f"{len(right_dets)} octopus" if right_dets else "No octopus"
+        print(f"Frame {frame_num} (t={frame_num/fps:.2f}s): Left: {left_status}, Right: {right_status}")
+        
+        # Emit progress every 30 frames (approximately every second at 30fps)
+        if frame_num % 30 == 0:
+            # Get current total detections from keyframe_data
+            current_left_total = sum(len(kf['left_detections']) for kf in keyframe_data['keyframes'].values())
+            current_right_total = sum(len(kf['right_detections']) for kf in keyframe_data['keyframes'].values())
+            
+            emit_progress({
+                'type': 'progress',
+                'stage': 'frame_processing',
+                'current_frame': frame_num,
+                'total_frames': min(max_frames, total_frames),
+                'fps': fps,
+                'time_elapsed': time.time() - start_time,
+                'left_detections': current_left_total,
+                'right_detections': current_right_total,
+                'message': f'Processing frame {frame_num}/{min(max_frames, total_frames)}...'
+            })
+    
+    return total_left, total_right
 
 
 def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = None,
@@ -377,6 +478,13 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     batch_frame_numbers = []
     
     print(f"\nProcessing video with batch size: {batch_size}...")
+    emit_progress({
+        'type': 'progress',
+        'stage': 'frame_processing',
+        'message': f'Processing video with batch size: {batch_size}...',
+        'total_frames': min(max_frames, total_frames),
+        'fps': fps
+    })
     
     while frame_count < max_frames:
         ret, frame = cap.read()
@@ -390,30 +498,15 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             
             # Process batch when full or at end of video
             if len(batch_frames) == batch_size or frame_count + frame_interval >= max_frames:
-                # Process both tank halves for the batch
-                left_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'left', conf_threshold)
-                right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
+                # Process the batch and store results
+                batch_left, batch_right = process_batch_and_store_results(
+                    model, batch_frames, batch_frame_numbers, tank_bbox, conf_threshold,
+                    keyframe_data, fps, start_time, total_frames, max_frames
+                )
                 
-                # Store results for each frame in the batch
-                for i, (frame_num, left_dets, right_dets) in enumerate(zip(batch_frame_numbers, 
-                                                                           left_batch_detections, 
-                                                                           right_batch_detections)):
-                    # Store keyframe data
-                    keyframe_data['keyframes'][str(frame_num)] = {
-                        'timestamp': frame_num / fps,
-                        'left_detections': left_dets,
-                        'right_detections': right_dets,
-                        'has_left_octopus': len(left_dets) > 0,
-                        'has_right_octopus': len(right_dets) > 0
-                    }
-                    
-                    total_left_detections += len(left_dets)
-                    total_right_detections += len(right_dets)
-                    
-                    # Report progress
-                    left_status = f"{len(left_dets)} octopus" if left_dets else "No octopus"
-                    right_status = f"{len(right_dets)} octopus" if right_dets else "No octopus"
-                    print(f"Frame {frame_num} (t={frame_num/fps:.2f}s): Left: {left_status}, Right: {right_status}")
+                # Update totals
+                total_left_detections += batch_left
+                total_right_detections += batch_right
                 
                 # Clear batch
                 batch_frames = []
@@ -423,30 +516,15 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     
     # Process any remaining frames in the batch
     if batch_frames:
-        # Process both tank halves for the remaining batch
-        left_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'left', conf_threshold)
-        right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
+        # Process the batch and store results
+        batch_left, batch_right = process_batch_and_store_results(
+            model, batch_frames, batch_frame_numbers, tank_bbox, conf_threshold,
+            keyframe_data, fps, start_time, total_frames, max_frames
+        )
         
-        # Store results for each frame in the batch
-        for i, (frame_num, left_dets, right_dets) in enumerate(zip(batch_frame_numbers, 
-                                                                   left_batch_detections, 
-                                                                   right_batch_detections)):
-            # Store keyframe data
-            keyframe_data['keyframes'][str(frame_num)] = {
-                'timestamp': frame_num / fps,
-                'left_detections': left_dets,
-                'right_detections': right_dets,
-                'has_left_octopus': len(left_dets) > 0,
-                'has_right_octopus': len(right_dets) > 0
-            }
-            
-            total_left_detections += len(left_dets)
-            total_right_detections += len(right_dets)
-            
-            # Report progress
-            left_status = f"{len(left_dets)} octopus" if left_dets else "No octopus"
-            right_status = f"{len(right_dets)} octopus" if right_dets else "No octopus"
-            print(f"Frame {frame_num} (t={frame_num/fps:.2f}s): Left: {left_status}, Right: {right_status}")
+        # Update totals
+        total_left_detections += batch_left
+        total_right_detections += batch_right
     
     # Update final statistics
     end_time = time.time()
@@ -478,6 +556,16 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
         keyframe_data['keyframes'] = preprocess_keyframes(keyframe_data['keyframes'])
         print("Preprocessing completed.")
     
+    # Emit completion progress
+    emit_progress({
+        'type': 'complete',
+        'message': 'Detection completed successfully',
+        'total_keyframes': len(keyframe_data['keyframes']),
+        'total_left_detections': total_left_detections,
+        'total_right_detections': total_right_detections,
+        'processing_time': processing_time
+    })
+    
     return keyframe_data
 
 
@@ -507,6 +595,8 @@ def main():
                         help='Number of frames to process in parallel (default: 4)')
     parser.add_argument('--no-preprocess', action='store_true',
                         help='Disable preprocessing of keyframes to remove extra detections')
+    parser.add_argument('--progress-json', action='store_true',
+                        help='Output progress updates as JSON (for web interface)')
     
     args = parser.parse_args()
     
@@ -573,3 +663,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

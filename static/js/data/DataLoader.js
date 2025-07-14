@@ -13,6 +13,7 @@ export class DataLoader {
     constructor(eventBus) {
         this.eventBus = eventBus;
         this.isLoading = false;
+        this.currentVideoFilename = null;
     }
 
     /**
@@ -44,6 +45,9 @@ export class DataLoader {
 
         this.isLoading = true;
         this.eventBus.emit(Events.UI_MODAL_SHOW, { type: 'loading' });
+        
+        // Store the video filename
+        this.currentVideoFilename = videoFile.name;
 
         const formData = new FormData();
         formData.append('video', videoFile);
@@ -98,6 +102,8 @@ export class DataLoader {
 
             if (response.ok) {
                 this.eventBus.emit(Events.UI_MODAL_HIDE);
+                // Extract filename from video URL
+                this.currentVideoFilename = `MVI_${code}_proxy.mp4`;
                 this.processLoadedData(data.video_url, data.keyframes);
                 return data;
             } else {
@@ -135,6 +141,9 @@ export class DataLoader {
 
             if (response.ok) {
                 this.eventBus.emit(Events.UI_MODAL_HIDE);
+                // Extract filename from video URL
+                const videoPath = config.video.split('/').pop();
+                this.currentVideoFilename = videoPath;
                 this.processLoadedData(config.video, keyframesData);
                 return {
                     video_url: config.video,
@@ -185,7 +194,8 @@ export class DataLoader {
             keyframesData,
             keyframeIndices,
             leftDetectionIndices,
-            rightDetectionIndices
+            rightDetectionIndices,
+            videoFilename: this.currentVideoFilename
         });
     }
 

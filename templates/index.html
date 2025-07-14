@@ -23,7 +23,9 @@
                             <label for="codeInput">Enter 4-digit code (e.g., 0020, 0601):</label>
                             <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
                             <button type="submit">Load by Code</button>
+                            <button type="button" id="runDetectionBtn" style="display: none;">Run Detection</button>
                         </div>
+                        <div id="codeStatus" class="code-status"></div>
                     </form>
                 </div>
                 
@@ -44,6 +46,33 @@
             </div>
         </div>
         
+        <!-- Detection Progress Modal -->
+        <div id="detectionModal" class="modal">
+            <div class="modal-content">
+                <h2>Running Detection</h2>
+                <div class="detection-status">
+                    <p id="detectionMessage">Initializing detection...</p>
+                    <div class="progress-bar-container">
+                        <div id="detectionProgressBar" class="progress-bar"></div>
+                    </div>
+                    <div class="detection-info">
+                        <div>Stage: <span id="detectionStage">Starting</span></div>
+                        <div>Progress: <span id="detectionProgress">0/0 frames</span></div>
+                        <div>Time: <span id="detectionTime">0s</span></div>
+                        <div>Time Remaining: <span id="detectionTimeRemaining">--</span></div>
+                        <div>Processing Speed: <span id="detectionSpeed">--</span></div>
+                        <div class="detection-counts">
+                            <span>Left detections: <span id="leftDetections">0</span></span>
+                            <span>Right detections: <span id="rightDetections">0</span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="detection-controls">
+                    <button id="cancelDetectionBtn" class="cancel-btn">Cancel Detection</button>
+                </div>
+            </div>
+        </div>
+        
         <div id="visualizerSection" class="visualizer-section" style="display: none;">
             <div class="top-bar">
                 <button id="loadNewBtn" class="load-new-btn">Load New Files</button>
@@ -53,7 +82,32 @@
                 <canvas id="overlayCanvas"></canvas>
             </div>
             
-            <div class="controls">
+            <div class="controls" style="position: relative;">
+                <!-- Activity Color Legend (overlaid top-right) -->
+                <div class="activity-legend-overlay">
+                    <fieldset>
+                        <legend>Activity Color Legend</legend>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(255, 0, 0);"></span>
+                                <span>Bottom of tank, near m/p</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(0, 255, 0);"></span>
+                                <span>Far from m/p, top of tank</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(255, 255, 0);"></span>
+                                <span>Top of tank, near m/p</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: black;"></span>
+                                <span>Bottom of tank, far from m/p</span>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
                 <div class="control-group">
                     <label>
                         <input type="checkbox" id="showTank" checked>
@@ -78,6 +132,7 @@
                         <input type="checkbox" id="showSpatialHeatmap">
                         Show Spatial Heatmap
                     </label>
+                    <button id="downloadHeatmaps" style="display: none; margin-top: 5px;">Download Heatmaps</button>
                 </div>
                 
                 <div class="control-group">
@@ -120,30 +175,6 @@
                         <input type="checkbox" id="fourierAnalysis"> Show Fourier Analysis
                     </label>
                 </div>-->
-                
-                <div class="control-group">
-                    <fieldset style="border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
-                        <legend style="font-weight: bold; padding: 0 5px;">Activity Color Legend</legend>
-                        <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 14px;">
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(255, 0, 0); border: 1px solid #ccc;"></span>
-                                <span>Bottom of tank, near mirror</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(0, 255, 0); border: 1px solid #ccc;"></span>
-                                <span>Far from mirror, top of tank</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(255, 255, 0); border: 1px solid #ccc;"></span>
-                                <span>Top of tank, near mirror</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <span style="display: inline-block; width: 20px; height: 20px; background-color: black; border: 1px solid #ccc;"></span>
-                                <span>Bottom of tank, far from mirror</span>
-                            </div>
-                        </div>
-                    </fieldset>
-                </div>
                 
                 <div class="frame-control" style="position: relative;">
                     <!-- Fourier overlay controls -->

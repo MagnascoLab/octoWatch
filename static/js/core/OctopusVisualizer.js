@@ -15,9 +15,10 @@ import { DataLoader } from '../data/DataLoader.js';
 import { InterpolationEngine } from '../data/InterpolationEngine.js';
 import { UIManager } from '../ui/UIManager.js';
 import { PerformanceMonitor } from '../utils/PerformanceMonitor.js';
-import { interpolateTrajectoryColor } from '../utils/ColorMaps.js';
+import { interpolateTrajectoryColor, viridis } from '../utils/ColorMaps.js';
 import { DEFAULTS } from '../utils/Constants.js';
 import { computeUnionBbox } from '../utils/MathUtils.js';
+import { DetectionManager } from '../detection/DetectionManager.js';
 
 export class OctopusVisualizer {
     /**
@@ -78,6 +79,9 @@ export class OctopusVisualizer {
             
             // UI module
             this.uiManager = new UIManager(this.eventBus);
+            
+            // Detection module
+            this.detectionManager = new DetectionManager(this.eventBus);
             
         } catch (error) {
             this.errorHandler.handleError(error, 'OctopusVisualizer', 'critical');
@@ -152,6 +156,10 @@ export class OctopusVisualizer {
             this.render();
         });
         
+        this.eventBus.on(Events.DOWNLOAD_HEATMAPS, () => {
+            this.downloadHeatmaps();
+        });
+        
         // Window resize
         window.addEventListener('resize', () => this.resizeCanvas());
     }
@@ -162,6 +170,7 @@ export class OctopusVisualizer {
      */
     handleDataLoaded(data) {
         this.keyframesData = data.keyframesData;
+        this.videoFilename = data.videoFilename;
         this.videoController.loadVideo(data.videoUrl);
         
         // Calculate all analysis data
@@ -498,5 +507,85 @@ export class OctopusVisualizer {
         
         // Clear event listeners
         window.removeEventListener('resize', this.resizeCanvas);
+    }
+    
+    /**
+     * Download spatial heatmaps as images
+     */
+    downloadHeatmaps() {
+        if (!this.heatmapCalculator.isCalculated()) {
+            console.warn('No heatmaps to download');
+            return;
+        }
+        
+        const heatmapData = this.heatmapCalculator.getHeatmapData();
+        const { leftHeatmap, rightHeatmap, heatmapWidth, heatmapHeight } = heatmapData;
+        
+        // Create canvas for rendering
+        const canvas = document.createElement('canvas');
+        canvas.width = heatmapWidth;
+        canvas.height = heatmapHeight;
+        const ctx = canvas.getContext('2d');
+        
+        // Get base filename without extension
+        const baseFilename = this.videoFilename ? 
+            this.videoFilename.replace(/\.[^/.]+$/, '') : 'octopus';
+        
+        // Download left heatmap
+        this.renderHeatmapToCanvas(ctx, leftHeatmap, heatmapWidth, heatmapHeight);
+        this.downloadCanvas(canvas, `${baseFilename}_heatmap_left.png`);
+        
+        // Download right heatmap
+        this.renderHeatmapToCanvas(ctx, rightHeatmap, heatmapWidth, heatmapHeight);
+        this.downloadCanvas(canvas, `${baseFilename}_heatmap_right.png`);
+    }
+    
+    /**
+     * Render heatmap data to canvas
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Float32Array} heatmapData - Normalized heatmap data
+     * @param {number} width - Heatmap width
+     * @param {number} height - Heatmap height
+     */
+    renderHeatmapToCanvas(ctx, heatmapData, width, height) {
+        const imageData = ctx.createImageData(width, height);
+        const data = imageData.data;
+        
+        // Use imported viridis colormap
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                const value = heatmapData[idx];
+                
+                // Get color from viridis colormap
+                const color = viridis(value);
+                
+                // Set pixel color
+                const pixelIdx = idx * 4;
+                data[pixelIdx] = color[0];     // R
+                data[pixelIdx + 1] = color[1]; // G
+                data[pixelIdx + 2] = color[2]; // B
+                data[pixelIdx + 3] = 255;      // A
+            }
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    /**
+     * Download canvas as image
+     * @param {HTMLCanvasElement} canvas - Canvas to download
+     * @param {string} filename - Filename for download
+     */
+    downloadCanvas(canvas, filename) {
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
     }
 }

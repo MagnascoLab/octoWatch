@@ -109,6 +109,7 @@ export const Events = {
     UI_CONTROL_CHANGE: 'ui:controlChange',
     UI_MODAL_SHOW: 'ui:modalShow',
     UI_MODAL_HIDE: 'ui:modalHide',
+    DOWNLOAD_HEATMAPS: 'ui:downloadHeatmaps',
     
     // Error events
     ERROR: 'error',

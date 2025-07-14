@@ -48,6 +48,7 @@ export class UIManager {
             trajectoryAlphaSlider: document.getElementById('trajectoryAlphaSlider'),
             trajectoryAlphaValue: document.getElementById('trajectoryAlphaValue'),
             showSpatialHeatmap: document.getElementById('showSpatialHeatmap'),
+            downloadHeatmaps: document.getElementById('downloadHeatmaps'),
             
             // Sensitivity controls
             activitySensitivitySlider: document.getElementById('activitySensitivitySlider'),
@@ -166,10 +167,18 @@ export class UIManager {
         });
         
         this.elements.showSpatialHeatmap.addEventListener('change', () => {
+            const isChecked = this.elements.showSpatialHeatmap.checked;
             this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
                 control: 'showSpatialHeatmap',
-                value: this.elements.showSpatialHeatmap.checked
+                value: isChecked
             });
+            // Show/hide download button
+            this.elements.downloadHeatmaps.style.display = isChecked ? 'block' : 'none';
+        });
+        
+        // Download heatmaps button
+        this.elements.downloadHeatmaps.addEventListener('click', () => {
+            this.eventBus.emit(Events.DOWNLOAD_HEATMAPS);
         });
         
         // Trajectory alpha slider
@@ -318,7 +327,8 @@ export class UIManager {
      */
     handleQuickLoadSubmit() {
         const code = this.elements.codeInput.value.trim();
-        this.eventBus.emit('ui:quickLoad', { code });
+        // Only check if keyframes exist - DetectionManager will handle loading if appropriate
+        this.eventBus.emit('detection:checkCode', { code });
     }
 
     /**
