@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octopus Tracking Visualizer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Octopus Tracking Visualizer</h1>
+        
+        <!-- Load Files Modal -->
+        <div id="loadModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Load Files</h2>
+                
+                <div class="quick-load">
+                    <h3>Quick Load by Code</h3>
+                    <form id="quickLoadForm">
+                        <div class="form-group">
+                            <label for="codeInput">Enter 4-digit code (e.g., 0020, 0601):</label>
+                            <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
+                            <button type="submit">Load by Code</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="divider">OR</div>
+                
+                <h3>Upload Custom Files</h3>
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="videoFile">Video File:</label>
+                        <input type="file" id="videoFile" accept="video/*" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="keyframesFile">Keyframes JSON:</label>
+                        <input type="file" id="keyframesFile" accept=".json" required>
+                    </div>
+                    <button type="submit">Load Files</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="visualizerSection" class="visualizer-section" style="display: none;">
+            <div class="top-bar">
+                <button id="loadNewBtn" class="load-new-btn">Load New Files</button>
+            </div>
+            <div class="video-container">
+                <video id="videoPlayer" controls></video>
+                <canvas id="overlayCanvas"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="showTank" checked>
+                        Show Tank Boundaries
+                    </label>
+                    <label>
+                        <input type="checkbox" id="enableInterpolation" checked>
+                        Enable Interpolation
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label>
+                            <input type="checkbox" id="showTrajectory">
+                            Show Trajectory
+                        </label>
+                        <div id="trajectoryAlphaContainer" style="display: none; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px;">Alpha:</span>
+                            <input type="range" id="trajectoryAlphaSlider" min="0" max="1" step="0.01" value="0.5" style="width: 100px;">
+                            <span id="trajectoryAlphaValue" style="font-size: 12px; min-width: 30px;">0.50</span>
+                        </div>
+                    </div>
+                    <label>
+                        <input type="checkbox" id="showSpatialHeatmap">
+                        Show Spatial Heatmap
+                    </label>
+                </div>
+                
+                <div class="control-group">
+                    <label>Show Side:</label>
+                    <select id="sideSelect">
+                        <option value="both">Both</option>
+                        <option value="left">Left Only</option>
+                        <option value="right">Right Only</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Activity Sensitivity: <span id="activitySensitivityValue">2.000</span></label>
+                    <input type="range" id="activitySensitivitySlider" min="1" max="3" step="0.001" value="2">
+                </div>
+                
+                <div class="control-group">
+                    <label>Proximity Sensitivity: <span id="proximitySensitivityValue">2.000</span></label>
+                    <input type="range" id="proximitySensitivitySlider" min="1" max="3" step="0.001" value="2">
+                </div>
+                
+                <div class="control-group">
+                    <label>Activity Metric:</label>
+                    <select id="activityMetric">
+                        <option value="centroid">Centroid Distance</option>
+                        <option value="iou">Union - Intersection</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Proximity Metric:</label>
+                    <select id="proximityMetric">
+                        <option value="edge">Edge-based (Current)</option>
+                        <option value="centroid">Centroid-based</option>
+                    </select>
+                </div>
+                
+                <!--<div class="control-group">
+                    <label>
+                        <input type="checkbox" id="fourierAnalysis"> Show Fourier Analysis
+                    </label>
+                </div>-->
+                
+                <div class="control-group">
+                    <fieldset style="border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                        <legend style="font-weight: bold; padding: 0 5px;">Activity Color Legend</legend>
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 14px;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(255, 0, 0); border: 1px solid #ccc;"></span>
+                                <span>Bottom of tank, near mirror</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(0, 255, 0); border: 1px solid #ccc;"></span>
+                                <span>Far from mirror, top of tank</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="display: inline-block; width: 20px; height: 20px; background-color: rgb(255, 255, 0); border: 1px solid #ccc;"></span>
+                                <span>Top of tank, near mirror</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="display: inline-block; width: 20px; height: 20px; background-color: black; border: 1px solid #ccc;"></span>
+                                <span>Bottom of tank, far from mirror</span>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                
+                <div class="frame-control" style="position: relative;">
+                    <!-- Fourier overlay controls -->
+                    <div id="fourierControls" style="display: none; position: absolute; top: -75px; right: 10px; background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 200px;">
+                        <label style="font-size: 12px; font-weight: bold;">Frequency Rank: <span id="freqRankValue">1</span></label>
+                        <input type="range" id="freqRankSlider" min="1" max="10" value="1" style="width: 100%; margin-top: 5px;">
+                        <div id="freqInfo" style="font-size: 11px; color: #666; margin-top: 8px; text-align: center;"></div>
+                    </div>
+                    <label>Frame: <span id="frameNumber">0</span></label>
+                    <canvas id="activityHeatmap"></canvas>
+                    <input type="range" id="frameSlider" min="0" max="0" value="0">
+                    
+                    
+                </div>
+                
+                <div class="playback-controls">
+                    <button id="playPauseBtn">Play</button>
+                    <button id="prevFrameBtn">← Prev</button>
+                    <button id="nextFrameBtn">Next →</button>
+                    <button id="prevKeyframeBtn">← Prev KF</button>
+                    <button id="nextKeyframeBtn">Next KF →</button>
+                </div>
+            </div>
+            
+            <div class="info-panel" hidden>
+                <h3>Frame Info</h3>
+                <div id="frameInfo"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- External libraries -->
+    <script src="/static/js/fft.js"></script>
+    
+    <!-- ES6 Module entry point -->
+    <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>
