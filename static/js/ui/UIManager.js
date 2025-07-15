@@ -23,11 +23,13 @@ export class UIManager {
             // Upload form
             uploadForm: document.getElementById('uploadForm'),
             videoFile: document.getElementById('videoFile'),
-            keyframesFile: document.getElementById('keyframesFile'),
             
             // Quick load form
             quickLoadForm: document.getElementById('quickLoadForm'),
             codeInput: document.getElementById('codeInput'),
+            browseCodesBtn: document.getElementById('browseCodesBtn'),
+            availableCodesList: document.getElementById('availableCodesList'),
+            codesGrid: document.getElementById('codesGrid'),
             
             // Video controls
             playPauseBtn: document.getElementById('playPauseBtn'),
@@ -35,6 +37,7 @@ export class UIManager {
             nextFrameBtn: document.getElementById('nextFrameBtn'),
             prevKeyframeBtn: document.getElementById('prevKeyframeBtn'),
             nextKeyframeBtn: document.getElementById('nextKeyframeBtn'),
+            screenshotBtn: document.getElementById('screenshotBtn'),
             frameSlider: document.getElementById('frameSlider'),
             frameNumber: document.getElementById('frameNumber'),
             frameInfo: document.getElementById('frameInfo'),
@@ -48,7 +51,22 @@ export class UIManager {
             trajectoryAlphaSlider: document.getElementById('trajectoryAlphaSlider'),
             trajectoryAlphaValue: document.getElementById('trajectoryAlphaValue'),
             showSpatialHeatmap: document.getElementById('showSpatialHeatmap'),
-            downloadHeatmaps: document.getElementById('downloadHeatmaps'),
+            heatmapAlphaContainer: document.getElementById('heatmapAlphaContainer'),
+            heatmapAlphaSlider: document.getElementById('heatmapAlphaSlider'),
+            heatmapAlphaValue: document.getElementById('heatmapAlphaValue'),
+            
+            // Export menu
+            exportMenuBtn: document.getElementById('exportMenuBtn'),
+            exportMenu: document.getElementById('exportMenu'),
+            exportHeatmapImages: document.getElementById('exportHeatmapImages'),
+            exportHeatmapData: document.getElementById('exportHeatmapData'),
+            exportTrajectoryJSON: document.getElementById('exportTrajectoryJSON'),
+            exportTrajectoryCSV: document.getElementById('exportTrajectoryCSV'),
+            exportActivityJSON: document.getElementById('exportActivityJSON'),
+            exportActivityCSV: document.getElementById('exportActivityCSV'),
+            exportProximityJSON: document.getElementById('exportProximityJSON'),
+            exportProximityCSV: document.getElementById('exportProximityCSV'),
+            exportAllJSON: document.getElementById('exportAllJSON'),
             
             // Sensitivity controls
             activitySensitivitySlider: document.getElementById('activitySensitivitySlider'),
@@ -75,6 +93,7 @@ export class UIManager {
             activitySensitivity: DEFAULTS.ACTIVITY_SENSITIVITY,
             proximitySensitivity: DEFAULTS.PROXIMITY_SENSITIVITY,
             trajectoryAlpha: DEFAULTS.TRAJECTORY_ALPHA,
+            heatmapAlpha: DEFAULTS.HEATMAP_ALPHA,
             frequencyRank: DEFAULTS.FREQUENCY_RANK
         };
         
@@ -109,6 +128,11 @@ export class UIManager {
             this.handleQuickLoadSubmit();
         });
         
+        // Browse codes button
+        this.elements.browseCodesBtn.addEventListener('click', () => {
+            this.handleBrowseCodesClick();
+        });
+        
         // Video controls
         this.elements.playPauseBtn.addEventListener('click', () => {
             this.eventBus.emit('ui:playPauseClick');
@@ -133,6 +157,11 @@ export class UIManager {
         this.elements.frameSlider.addEventListener('input', (e) => {
             const frame = parseInt(e.target.value);
             this.eventBus.emit('ui:seekFrame', { frame });
+        });
+        
+        // Screenshot button
+        this.elements.screenshotBtn.addEventListener('click', () => {
+            this.eventBus.emit('ui:takeScreenshot');
         });
         
         // Visualization options
@@ -168,17 +197,80 @@ export class UIManager {
         
         this.elements.showSpatialHeatmap.addEventListener('change', () => {
             const isChecked = this.elements.showSpatialHeatmap.checked;
+            this.elements.heatmapAlphaContainer.style.display = isChecked ? 'flex' : 'none';
             this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
                 control: 'showSpatialHeatmap',
                 value: isChecked
             });
-            // Show/hide download button
-            this.elements.downloadHeatmaps.style.display = isChecked ? 'block' : 'none';
         });
         
-        // Download heatmaps button
-        this.elements.downloadHeatmaps.addEventListener('click', () => {
-            this.eventBus.emit(Events.DOWNLOAD_HEATMAPS);
+        // Heatmap alpha slider
+        this.elements.heatmapAlphaSlider.addEventListener('input', (e) => {
+            this.state.heatmapAlpha = parseFloat(e.target.value);
+            this.elements.heatmapAlphaValue.textContent = this.state.heatmapAlpha.toFixed(2);
+            this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
+                control: 'heatmapAlpha',
+                value: this.state.heatmapAlpha
+            });
+        });
+        
+        // Export menu button
+        this.elements.exportMenuBtn.addEventListener('click', () => {
+            this.toggleExportMenu();
+        });
+        
+        // Export menu handlers
+        this.elements.exportHeatmapImages.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_HEATMAP_IMAGES);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportHeatmapData.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_HEATMAP_DATA);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportTrajectoryJSON.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_TRAJECTORY_JSON);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportTrajectoryCSV.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_TRAJECTORY_CSV);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportActivityJSON.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_ACTIVITY_JSON);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportActivityCSV.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_ACTIVITY_CSV);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportProximityJSON.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_PROXIMITY_JSON);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportProximityCSV.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_PROXIMITY_CSV);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportAllJSON.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_ALL_JSON);
+            this.hideExportMenu();
+        });
+        
+        // Click outside to close export menu
+        document.addEventListener('click', (e) => {
+            if (!this.elements.exportMenuBtn.contains(e.target) && 
+                !this.elements.exportMenu.contains(e.target)) {
+                this.hideExportMenu();
+            }
         });
         
         // Trajectory alpha slider
@@ -290,6 +382,14 @@ export class UIManager {
             const fps = data.keyframesData.video_info.fps || DEFAULTS.FPS;
             const totalFrames = data.keyframesData.video_info.total_frames_processed;
             this.elements.frameSlider.max = totalFrames;
+            
+            // Show export button when data is loaded
+            this.elements.exportMenuBtn.style.display = 'block';
+        });
+        
+        // Detection completed
+        this.eventBus.on('detection:completed', (data) => {
+            this.refreshAvailableCodes();
         });
     }
 
@@ -312,14 +412,13 @@ export class UIManager {
      */
     handleFileUploadSubmit() {
         const videoFile = this.elements.videoFile.files[0];
-        const keyframesFile = this.elements.keyframesFile.files[0];
         
-        if (!videoFile || !keyframesFile) {
-            alert('Please select both video and keyframes files');
+        if (!videoFile) {
+            alert('Please select a video file');
             return;
         }
         
-        this.eventBus.emit('ui:uploadFiles', { videoFile, keyframesFile });
+        this.eventBus.emit('ui:uploadVideo', { videoFile });
     }
 
     /**
@@ -329,6 +428,71 @@ export class UIManager {
         const code = this.elements.codeInput.value.trim();
         // Only check if keyframes exist - DetectionManager will handle loading if appropriate
         this.eventBus.emit('detection:checkCode', { code });
+    }
+
+    /**
+     * Handle browse codes button click
+     */
+    async handleBrowseCodesClick() {
+        // Toggle visibility
+        const isVisible = this.elements.availableCodesList.style.display !== 'none';
+        
+        if (!isVisible) {
+            // Show the codes list
+            this.elements.availableCodesList.style.display = 'block';
+            this.elements.browseCodesBtn.textContent = 'Hide Available Codes';
+            
+            // Fetch and display available codes
+            try {
+                this.eventBus.emit('ui:fetchAvailableCodes');
+            } catch (error) {
+                this.showError('Failed to load available codes');
+            }
+        } else {
+            // Hide the codes list
+            this.elements.availableCodesList.style.display = 'none';
+            this.elements.browseCodesBtn.textContent = 'Browse Available Codes';
+        }
+    }
+
+    /**
+     * Display available codes in grid
+     * @param {Array} codes - Array of code objects
+     */
+    displayAvailableCodes(codes) {
+        this.elements.codesGrid.innerHTML = '';
+        
+        codes.forEach(codeInfo => {
+            const codeElement = document.createElement('div');
+            codeElement.className = 'code-item';
+            codeElement.classList.add(codeInfo.has_keyframes ? 'code-ready' : 'code-needs-detection');
+            
+            const codeNumber = document.createElement('div');
+            codeNumber.className = 'code-number';
+            codeNumber.textContent = codeInfo.code;
+            
+            const statusIcon = document.createElement('div');
+            statusIcon.className = 'code-status-icon';
+            statusIcon.textContent = codeInfo.has_keyframes ? '✅' : '🟡';
+            statusIcon.title = codeInfo.has_keyframes ? 'Ready to load' : 'Needs detection';
+            
+            codeElement.appendChild(codeNumber);
+            codeElement.appendChild(statusIcon);
+            
+            // Make clickable
+            codeElement.addEventListener('click', () => {
+                this.elements.codeInput.value = codeInfo.code;
+                if (codeInfo.has_keyframes) {
+                    // Auto-submit if keyframes exist
+                    this.handleQuickLoadSubmit();
+                } else {
+                    // Just populate the field and let user decide
+                    this.elements.codeInput.focus();
+                }
+            });
+            
+            this.elements.codesGrid.appendChild(codeElement);
+        });
     }
 
     /**
@@ -368,6 +532,7 @@ export class UIManager {
             showTrajectory: this.elements.showTrajectory.checked,
             trajectoryAlpha: this.state.trajectoryAlpha,
             showSpatialHeatmap: this.elements.showSpatialHeatmap.checked,
+            heatmapAlpha: this.state.heatmapAlpha,
             activitySensitivity: this.state.activitySensitivity,
             proximitySensitivity: this.state.proximitySensitivity,
             activityMetric: this.elements.activityMetric.value,
@@ -388,6 +553,7 @@ export class UIManager {
             this.elements.nextFrameBtn,
             this.elements.prevKeyframeBtn,
             this.elements.nextKeyframeBtn,
+            this.elements.screenshotBtn,
             this.elements.frameSlider
         ];
         
@@ -405,10 +571,74 @@ export class UIManager {
     }
 
     /**
+     * Show upload success message
+     * @param {string} code - Assigned MVI code
+     * @param {string} message - Success message
+     */
+    showUploadSuccess(code, message) {
+        const statusEl = document.getElementById('codeStatus');
+        if (statusEl) {
+            statusEl.className = 'code-status success';
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            
+            // Show the run detection button
+            const runDetectionBtn = document.getElementById('runDetectionBtn');
+            if (runDetectionBtn) {
+                runDetectionBtn.style.display = 'inline-block';
+            }
+            
+            // Hide after 5 seconds
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    /**
      * Get modal state
      * @returns {boolean} True if modal is visible
      */
     isModalVisible() {
         return this.elements.modal.style.display === 'block';
+    }
+
+    /**
+     * Refresh available codes list if visible
+     */
+    refreshAvailableCodes() {
+        // Check if the codes list is currently visible
+        const isVisible = this.elements.availableCodesList.style.display !== 'none';
+        
+        if (isVisible) {
+            // Re-fetch and display available codes
+            this.eventBus.emit('ui:fetchAvailableCodes');
+        }
+    }
+    
+    /**
+     * Toggle export menu visibility
+     */
+    toggleExportMenu() {
+        const isVisible = this.elements.exportMenu.style.display !== 'none';
+        if (isVisible) {
+            this.hideExportMenu();
+        } else {
+            this.showExportMenu();
+        }
+    }
+    
+    /**
+     * Show export menu
+     */
+    showExportMenu() {
+        this.elements.exportMenu.style.display = 'block';
+    }
+    
+    /**
+     * Hide export menu
+     */
+    hideExportMenu() {
+        this.elements.exportMenu.style.display = 'none';
     }
 }

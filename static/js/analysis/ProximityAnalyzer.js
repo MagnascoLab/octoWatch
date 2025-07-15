@@ -214,6 +214,8 @@ export class ProximityAnalyzer {
         return {
             leftProximityData: this.leftProximityData,
             rightProximityData: this.rightProximityData,
+            leftVerticalData: this.leftVerticalData,
+            rightVerticalData: this.rightVerticalData,
             metric: this.metric,
             sensitivity: this.sensitivity
         };

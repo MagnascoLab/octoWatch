@@ -9,6 +9,7 @@ export const DEFAULTS = {
     ACTIVITY_SENSITIVITY: 2.0,
     PROXIMITY_SENSITIVITY: 2.0,
     TRAJECTORY_ALPHA: 0.5,
+    HEATMAP_ALPHA: 0.7,
     FREQUENCY_RANK: 1,
     ACTIVITY_METRIC: 'centroid', // 'iou' or 'centroid'
     PROXIMITY_METRIC: 'edge', // 'edge' or 'centroid'
@@ -64,7 +65,7 @@ export const ANALYSIS = {
 export const FILE_UPLOAD = {
     ACCEPTED_VIDEO_TYPES: ['.mp4', '.mov', '.avi', '.webm'],
     ACCEPTED_DATA_TYPES: ['.json'],
-    MAX_FILE_SIZE: 500 * 1024 * 1024 // 500MB
+    MAX_FILE_SIZE: 8 * 1024 * 1024 * 1024 // 8GB
 };
 
 // WebGL shader sources

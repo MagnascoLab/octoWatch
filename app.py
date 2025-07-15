@@ -5,11 +5,13 @@ import json
 from pathlib import Path
 import time
 import queue
+import subprocess
+import sys
 from detection_manager import detection_manager
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
+app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024 * 1024  # 8GB max file size
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Ensure upload directory exists
@@ -19,37 +21,49 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
-def upload_files():
-    if 'video' not in request.files or 'keyframes' not in request.files:
-        return jsonify({'error': 'Both video and keyframes files are required'}), 400
+@app.route('/upload-video', methods=['POST'])
+def upload_video():
+    if 'video' not in request.files:
+        return jsonify({'error': 'Video file is required'}), 400
     
     video_file = request.files['video']
-    keyframes_file = request.files['keyframes']
     
-    if video_file.filename == '' or keyframes_file.filename == '':
+    if video_file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
     
-    # Save files
-    video_filename = f"video_{os.urandom(8).hex()}{Path(video_file.filename).suffix}"
-    keyframes_filename = f"keyframes_{os.urandom(8).hex()}.json"
+    # Find the next available MVI index
+    videos_dir = Path('videos')
+    os.makedirs(videos_dir, exist_ok=True)
     
-    video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
-    keyframes_path = os.path.join(app.config['UPLOAD_FOLDER'], keyframes_filename)
+    # Get all existing MVI codes
+    existing_codes = set()
+    for video_path in videos_dir.glob('MVI_*_proxy.[mM][pP]4'):
+        code = video_path.stem.split('_')[1]  # MVI_XXXX_proxy -> XXXX
+        if code.isdigit():
+            existing_codes.add(int(code))
     
-    video_file.save(video_path)
-    keyframes_file.save(keyframes_path)
+    # Find the next available code (starting from 0001)
+    next_code = 1
+    while next_code in existing_codes and next_code <= 9999:
+        next_code += 1
     
-    # Load and validate keyframes JSON
-    try:
-        with open(keyframes_path, 'r') as f:
-            keyframes_data = json.load(f)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON file'}), 400
+    if next_code > 9999:
+        return jsonify({'error': 'Maximum video limit reached (9999)'}), 400
+    
+    # Format code as 4-digit string
+    code = f"{next_code:04d}"
+    
+    # Save video with MVI naming convention
+    video_extension = Path(video_file.filename).suffix.lower()
+    video_filename = f"MVI_{code}_proxy{video_extension}"
+    video_path = videos_dir / video_filename
+    
+    video_file.save(str(video_path))
     
     return jsonify({
-        'video_url': f'/uploads/{video_filename}',
-        'keyframes': keyframes_data
+        'code': code,
+        'video_filename': video_filename,
+        'message': f'Video uploaded successfully with code {code}. You can now run detection.'
     })
 
 @app.route('/uploads/<filename>')
@@ -194,5 +208,36 @@ def cancel_detection(job_id):
     else:
         return jsonify({'error': 'Job not found or already completed'}), 404
 
+@app.route('/list-available-codes')
+def list_available_codes():
+    """List all available video codes and their keyframe status"""
+    videos_dir = Path('videos')
+    keyframes_dir = Path('videos_keyframes')
+    
+    # Find all video files
+    video_files = {}
+    for video_path in videos_dir.glob('MVI_*_proxy.[mM][pP]4'):
+        # Extract code from filename
+        code = video_path.stem.split('_')[1]  # MVI_XXXX_proxy -> XXXX
+        video_files[code] = True
+    
+    # Check for corresponding keyframes
+    codes_info = []
+    for code in sorted(video_files.keys()):
+        keyframes_path = keyframes_dir / f'MVI_{code}_keyframes.json'
+        codes_info.append({
+            'code': code,
+            'has_video': True,
+            'has_keyframes': keyframes_path.exists()
+        })
+    
+    return jsonify({'codes': codes_info})
+
+import os
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5172)
+    if getattr(sys, 'frozen', False):
+        app.run(host='127.0.0.1', port=5172, debug=False, use_reloader=False)
+    else:
+        # Just try to run - Flask will error clearly if port is taken
+        app.run(debug=True, host='0.0.0.0', port=5172)

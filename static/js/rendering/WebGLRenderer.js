@@ -44,7 +44,14 @@ export class WebGLRenderer {
      * Initialize WebGL context and shaders
      */
     initialize() {
-        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+        // Add preserveDrawingBuffer for screenshot capability
+        const contextOptions = {
+            preserveDrawingBuffer: true,
+            alpha: true
+        };
+        
+        this.gl = this.canvas.getContext('webgl', contextOptions) || 
+                  this.canvas.getContext('experimental-webgl', contextOptions);
         
         if (!this.gl) {
             this.eventBus.emit(Events.ERROR, {
@@ -445,8 +452,9 @@ export class WebGLRenderer {
      * @param {number} scaleX - X scale factor
      * @param {number} scaleY - Y scale factor
      * @param {number} opacity - Heatmap opacity (0-1)
+     * @param {string} side - Which side to draw ('left', 'right', or 'both')
      */
-    drawSpatialHeatmap(tankBbox, scaleX, scaleY, opacity = 0.7) {
+    drawSpatialHeatmap(tankBbox, scaleX, scaleY, opacity = 0.7, side = 'both') {
         if (!this.heatmapData || !this.heatmapShaderProgram) return;
         const gl = this.gl;
         const videoWidth = this.canvas.width / scaleX;
@@ -467,19 +475,23 @@ export class WebGLRenderer {
         gl.enableVertexAttribArray(this.attributes.heatmapPosition);
         gl.enableVertexAttribArray(this.attributes.heatmapTexCoord);
         
-        // Draw left heatmap
-        this.drawHeatmapQuad(
-            tankLeft, tankTop,
-            tankCenterX, tankBottom,
-            this.leftHeatmapTexture
-        );
+        // Draw left heatmap if needed
+        if (side === 'left' || side === 'both') {
+            this.drawHeatmapQuad(
+                tankLeft, tankTop,
+                tankCenterX, tankBottom,
+                this.leftHeatmapTexture
+            );
+        }
         
-        // Draw right heatmap
-        this.drawHeatmapQuad(
-            tankCenterX, tankTop,
-            tankRight, tankBottom,
-            this.rightHeatmapTexture
-        );
+        // Draw right heatmap if needed
+        if (side === 'right' || side === 'both') {
+            this.drawHeatmapQuad(
+                tankCenterX, tankTop,
+                tankRight, tankBottom,
+                this.rightHeatmapTexture
+            );
+        }
         
         // Disable vertex attributes
         gl.disableVertexAttribArray(this.attributes.heatmapPosition);

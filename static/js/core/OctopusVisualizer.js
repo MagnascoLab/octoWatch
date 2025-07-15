@@ -19,6 +19,8 @@ import { interpolateTrajectoryColor, viridis } from '../utils/ColorMaps.js';
 import { DEFAULTS } from '../utils/Constants.js';
 import { computeUnionBbox } from '../utils/MathUtils.js';
 import { DetectionManager } from '../detection/DetectionManager.js';
+import { ScreenshotCapture } from '../utils/ScreenshotCapture.js';
+import { DataExporter } from '../utils/DataExporter.js';
 
 export class OctopusVisualizer {
     /**
@@ -39,6 +41,7 @@ export class OctopusVisualizer {
         this.keyframesData = null;
         this.currentFrame = 0;
         this.animationId = null;
+        this.videoFilename = null;
         
         // Initialize modules
         this.initializeModules();
@@ -83,6 +86,12 @@ export class OctopusVisualizer {
             // Detection module
             this.detectionManager = new DetectionManager(this.eventBus);
             
+            // Screenshot utility
+            this.screenshotCapture = new ScreenshotCapture();
+            
+            // Data exporter
+            this.dataExporter = new DataExporter();
+            
         } catch (error) {
             this.errorHandler.handleError(error, 'OctopusVisualizer', 'critical');
         }
@@ -98,9 +107,15 @@ export class OctopusVisualizer {
         });
         
         // UI events
-        this.eventBus.on('ui:uploadFiles', async (data) => {
+        this.eventBus.on('ui:uploadVideo', async (data) => {
             try {
-                await this.dataLoader.handleFileUpload(data.videoFile, data.keyframesFile);
+                const result = await this.dataLoader.handleVideoUpload(data.videoFile);
+                // Show success message with the assigned code
+                this.uiManager.showUploadSuccess(result.code, result.message);
+                // Automatically set the code in the quick load input
+                document.getElementById('codeInput').value = result.code;
+                // Refresh available codes list if visible
+                this.uiManager.refreshAvailableCodes();
             } catch (error) {
                 this.uiManager.showError(error.message);
             }
@@ -111,6 +126,15 @@ export class OctopusVisualizer {
                 await this.dataLoader.handleQuickLoad(data.code);
             } catch (error) {
                 this.uiManager.showError(error.message);
+            }
+        });
+        
+        this.eventBus.on('ui:fetchAvailableCodes', async () => {
+            try {
+                const codes = await this.dataLoader.fetchAvailableCodes();
+                this.uiManager.displayAvailableCodes(codes);
+            } catch (error) {
+                this.uiManager.showError('Failed to fetch available codes');
             }
         });
         
@@ -136,6 +160,10 @@ export class OctopusVisualizer {
             this.videoController.seekToFrame(targetFrame);
         });
         
+        this.eventBus.on('ui:takeScreenshot', () => {
+            this.takeScreenshot();
+        });
+        
         // Control change events
         this.eventBus.on(Events.UI_CONTROL_CHANGE, (data) => {
             this.handleControlChange(data);
@@ -156,8 +184,41 @@ export class OctopusVisualizer {
             this.render();
         });
         
-        this.eventBus.on(Events.DOWNLOAD_HEATMAPS, () => {
+        // Export events
+        this.eventBus.on(Events.EXPORT_HEATMAP_IMAGES, () => {
             this.downloadHeatmaps();
+        });
+        
+        this.eventBus.on(Events.EXPORT_HEATMAP_DATA, () => {
+            this.exportHeatmapData();
+        });
+        
+        this.eventBus.on(Events.EXPORT_TRAJECTORY_JSON, () => {
+            this.exportTrajectoryJSON();
+        });
+        
+        this.eventBus.on(Events.EXPORT_TRAJECTORY_CSV, () => {
+            this.exportTrajectoryCSV();
+        });
+        
+        this.eventBus.on(Events.EXPORT_ACTIVITY_JSON, () => {
+            this.exportActivityJSON();
+        });
+        
+        this.eventBus.on(Events.EXPORT_ACTIVITY_CSV, () => {
+            this.exportActivityCSV();
+        });
+        
+        this.eventBus.on(Events.EXPORT_PROXIMITY_JSON, () => {
+            this.exportProximityJSON();
+        });
+        
+        this.eventBus.on(Events.EXPORT_PROXIMITY_CSV, () => {
+            this.exportProximityCSV();
+        });
+        
+        this.eventBus.on(Events.EXPORT_ALL_JSON, () => {
+            this.exportAllData();
         });
         
         // Window resize
@@ -171,6 +232,7 @@ export class OctopusVisualizer {
     handleDataLoaded(data) {
         this.keyframesData = data.keyframesData;
         this.videoFilename = data.videoFilename;
+        this.dataExporter.setVideoFilename(this.videoFilename);
         this.videoController.loadVideo(data.videoUrl);
         
         // Calculate all analysis data
@@ -337,7 +399,7 @@ export class OctopusVisualizer {
         
         // Draw spatial heatmap if enabled (draw first so it's in the background)
         if (uiState.showSpatialHeatmap && this.heatmapCalculator.isCalculated()) {
-            this.webglRenderer.drawSpatialHeatmap(tankBbox, scaleX, scaleY, 0.7);
+            this.webglRenderer.drawSpatialHeatmap(tankBbox, scaleX, scaleY, uiState.heatmapAlpha, uiState.sideSelect);
             this.performanceMonitor.incrementDrawCalls();
         }
         
@@ -587,5 +649,129 @@ export class OctopusVisualizer {
             a.click();
             URL.revokeObjectURL(url);
         });
+    }
+    
+    /**
+     * Take screenshot of current video frame with overlays
+     */
+    takeScreenshot() {
+        // Ensure video is loaded
+        if (!this.videoPlayer.videoWidth || !this.videoPlayer.videoHeight) {
+            this.uiManager.showError('Video not loaded');
+            return;
+        }
+        
+        // Get current frame number
+        const currentFrame = this.videoController.getCurrentFrame();
+        
+        // Take screenshot
+        const result = this.screenshotCapture.takeScreenshot(
+            this.videoPlayer,
+            this.canvas,
+            currentFrame,
+            this.videoFilename || 'octopus_video'
+        );
+        
+        if (!result.success) {
+            this.uiManager.showError(`Screenshot failed: ${result.error}`);
+        } else {
+            // Optional: Show brief success feedback
+            console.log(`Screenshot saved: ${result.filename}`);
+        }
+    }
+    
+    /**
+     * Export heatmap data as JSON
+     */
+    exportHeatmapData() {
+        if (!this.heatmapCalculator.isCalculated()) {
+            this.uiManager.showError('No heatmap data to export');
+            return;
+        }
+        
+        const heatmapData = this.heatmapCalculator.getHeatmapData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportHeatmapJSON(heatmapData, side);
+    }
+    
+    /**
+     * Export trajectory data as JSON
+     */
+    exportTrajectoryJSON() {
+        if (!this.trajectoryCalculator.isCalculated()) {
+            this.uiManager.showError('No trajectory data to export');
+            return;
+        }
+        
+        const trajectoryData = this.trajectoryCalculator.getTrajectoryData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportTrajectoryJSON(trajectoryData, this.keyframesData.video_info, side);
+    }
+    
+    /**
+     * Export trajectory data as CSV
+     */
+    exportTrajectoryCSV() {
+        if (!this.trajectoryCalculator.isCalculated()) {
+            this.uiManager.showError('No trajectory data to export');
+            return;
+        }
+        
+        const trajectoryData = this.trajectoryCalculator.getTrajectoryData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportTrajectoryCSV(trajectoryData, side);
+    }
+    
+    /**
+     * Export activity data as JSON
+     */
+    exportActivityJSON() {
+        const activityData = this.activityAnalyzer.getActivityData();
+        const side = this.uiManager.getState().sideSelect;
+        const metric = this.uiManager.getState().activityMetric;
+        this.dataExporter.exportActivityJSON(activityData, this.keyframesData.video_info, metric, side);
+    }
+    
+    /**
+     * Export activity data as CSV
+     */
+    exportActivityCSV() {
+        const activityData = this.activityAnalyzer.getActivityData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportActivityCSV(activityData, side);
+    }
+    
+    /**
+     * Export proximity data as JSON
+     */
+    exportProximityJSON() {
+        const proximityData = this.proximityAnalyzer.getProximityData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportProximityJSON(proximityData, this.keyframesData.video_info, side);
+    }
+    
+    /**
+     * Export proximity data as CSV
+     */
+    exportProximityCSV() {
+        const proximityData = this.proximityAnalyzer.getProximityData();
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportProximityCSV(proximityData, side);
+    }
+    
+    /**
+     * Export all analysis data as JSON
+     */
+    exportAllData() {
+        const allData = {
+            videoInfo: this.keyframesData.video_info,
+            heatmapData: this.heatmapCalculator.isCalculated() ? this.heatmapCalculator.getHeatmapData() : null,
+            trajectoryData: this.trajectoryCalculator.isCalculated() ? this.trajectoryCalculator.getTrajectoryData() : null,
+            activityData: this.activityAnalyzer.getActivityData(),
+            proximityData: this.proximityAnalyzer.getProximityData()
+        };
+        
+        const side = this.uiManager.getState().sideSelect;
+        this.dataExporter.exportAllJSON(allData, side);
     }
 }

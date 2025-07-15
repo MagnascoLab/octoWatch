@@ -17,27 +17,22 @@ export class DataLoader {
     }
 
     /**
-     * Handle file upload
+     * Handle video upload
      * @param {File} videoFile - Video file
-     * @param {File} keyframesFile - Keyframes JSON file
-     * @returns {Promise} Upload result
+     * @returns {Promise} Upload result with assigned code
      */
-    async handleFileUpload(videoFile, keyframesFile) {
-        if (!videoFile || !keyframesFile) {
-            throw new Error('Both video and keyframes files are required');
+    async handleVideoUpload(videoFile) {
+        if (!videoFile) {
+            throw new Error('Video file is required');
         }
 
-        // Validate file types
+        // Validate file type
         if (!this.isValidVideoFile(videoFile)) {
             throw new Error('Invalid video file type. Supported types: ' + 
                           FILE_UPLOAD.ACCEPTED_VIDEO_TYPES.join(', '));
         }
 
-        if (!this.isValidDataFile(keyframesFile)) {
-            throw new Error('Invalid keyframes file type. Expected: .json');
-        }
-
-        // Check file sizes
+        // Check file size
         if (videoFile.size > FILE_UPLOAD.MAX_FILE_SIZE) {
             throw new Error('Video file too large. Maximum size: ' + 
                           (FILE_UPLOAD.MAX_FILE_SIZE / 1024 / 1024) + 'MB');
@@ -45,16 +40,12 @@ export class DataLoader {
 
         this.isLoading = true;
         this.eventBus.emit(Events.UI_MODAL_SHOW, { type: 'loading' });
-        
-        // Store the video filename
-        this.currentVideoFilename = videoFile.name;
 
         const formData = new FormData();
         formData.append('video', videoFile);
-        formData.append('keyframes', keyframesFile);
 
         try {
-            const response = await fetch('/upload', {
+            const response = await fetch('/upload-video', {
                 method: 'POST',
                 body: formData
             });
@@ -67,8 +58,8 @@ export class DataLoader {
             const data = await response.json();
 
             if (response.ok) {
-                this.eventBus.emit(Events.UI_MODAL_HIDE);
-                this.processLoadedData(data.video_url, data.keyframes);
+                // Video uploaded successfully, show code and option to run detection
+                // Keep modal open so user can see the success message and run detection
                 return data;
             } else {
                 throw new Error(data.error || 'Upload failed');
@@ -265,5 +256,29 @@ export class DataLoader {
             video: config.video,
             data: config.data
         }));
+    }
+
+    /**
+     * Fetch all available codes from server
+     * @returns {Promise<Array>} Array of code objects with video/keyframe status
+     */
+    async fetchAvailableCodes() {
+        try {
+            const response = await fetch('/list-available-codes');
+            const data = await response.json();
+            
+            if (response.ok) {
+                return data.codes;
+            } else {
+                throw new Error(data.error || 'Failed to fetch available codes');
+            }
+        } catch (error) {
+            this.eventBus.emit(Events.DATA_ERROR, {
+                error,
+                module: 'DataLoader',
+                severity: 'error'
+            });
+            throw error;
+        }
     }
 }

@@ -101,6 +101,82 @@ h1 {
     margin-bottom: 20px;
 }
 
+.browse-codes-btn {
+    background-color: #6c757d;
+    margin-left: 10px;
+}
+
+.browse-codes-btn:hover {
+    background-color: #545b62;
+}
+
+.available-codes-list {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.available-codes-list h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.codes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+}
+
+.code-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: white;
+}
+
+.code-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.code-ready {
+    border-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.code-ready:hover {
+    border-color: #218838;
+}
+
+.code-needs-detection {
+    border-color: #ffc107;
+    background-color: #fffcf5;
+}
+
+.code-needs-detection:hover {
+    border-color: #e0a800;
+}
+
+.code-number {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.code-status-icon {
+    font-size: 18px;
+}
+
 .divider {
     text-align: center;
     margin: 20px 0;
@@ -233,6 +309,7 @@ button:disabled {
 
 .control-group {
     margin-bottom: 15px;
+    position: relative;
 }
 
 .control-group label {
@@ -273,6 +350,88 @@ button:disabled {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.screenshot-btn {
+    background-color: #17a2b8;
+    margin-left: 10px;
+}
+
+.screenshot-btn:hover {
+    background-color: #138496;
+}
+
+/* Export button styles */
+#exportMenuBtn {
+    background-color: #6c757d;
+    position: relative;
+    margin-left: 10px;
+}
+
+#exportMenuBtn:hover {
+    background-color: #545b62;
+}
+
+/* Export menu styles */
+.export-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 5px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    min-width: 250px;
+    z-index: 100;
+}
+
+.export-section {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.export-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.export-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #333;
+    font-weight: 600;
+}
+
+.export-btn {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    background-color: #f8f9fa;
+    color: #333;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.export-btn:last-child {
+    margin-bottom: 0;
+}
+
+.export-btn:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.export-btn:active {
+    background-color: #dee2e6;
 }
 
 .info-panel {

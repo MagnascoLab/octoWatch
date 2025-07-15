@@ -14,7 +14,7 @@
         <div id="loadModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2>Load Files</h2>
+                <h2>Load Video</h2>
                 
                 <div class="quick-load">
                     <h3>Quick Load by Code</h3>
@@ -24,24 +24,28 @@
                             <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
                             <button type="submit">Load by Code</button>
                             <button type="button" id="runDetectionBtn" style="display: none;">Run Detection</button>
+                            <button type="button" id="browseCodesBtn" class="browse-codes-btn">Browse Available Codes</button>
                         </div>
                         <div id="codeStatus" class="code-status"></div>
                     </form>
+                    <div id="availableCodesList" class="available-codes-list" style="display: none;">
+                        <h4>Available Codes</h4>
+                        <div id="codesGrid" class="codes-grid"></div>
+                    </div>
                 </div>
                 
                 <div class="divider">OR</div>
                 
-                <h3>Upload Custom Files</h3>
+                <h3>Upload New Video</h3>
                 <form id="uploadForm">
                     <div class="form-group">
                         <label for="videoFile">Video File:</label>
                         <input type="file" id="videoFile" accept="video/*" required>
                     </div>
-                    <div class="form-group">
-                        <label for="keyframesFile">Keyframes JSON:</label>
-                        <input type="file" id="keyframesFile" accept=".json" required>
-                    </div>
-                    <button type="submit">Load Files</button>
+                    <button type="submit">Upload Video</button>
+                    <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                        Video will be auto-assigned the next available MVI code
+                    </p>
                 </form>
             </div>
         </div>
@@ -75,7 +79,7 @@
         
         <div id="visualizerSection" class="visualizer-section" style="display: none;">
             <div class="top-bar">
-                <button id="loadNewBtn" class="load-new-btn">Load New Files</button>
+                <button id="loadNewBtn" class="load-new-btn">Load New Video</button>
             </div>
             <div class="video-container">
                 <video id="videoPlayer" controls></video>
@@ -128,11 +132,50 @@
                             <span id="trajectoryAlphaValue" style="font-size: 12px; min-width: 30px;">0.50</span>
                         </div>
                     </div>
-                    <label>
-                        <input type="checkbox" id="showSpatialHeatmap">
-                        Show Spatial Heatmap
-                    </label>
-                    <button id="downloadHeatmaps" style="display: none; margin-top: 5px;">Download Heatmaps</button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label>
+                            <input type="checkbox" id="showSpatialHeatmap">
+                            Show Spatial Heatmap
+                        </label>
+                        <div id="heatmapAlphaContainer" style="display: none; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px;">Alpha:</span>
+                            <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 100px;">
+                            <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 30px;">0.70</span>
+                        </div>
+                    </div>
+                    <button id="exportMenuBtn" style="display: none; margin-top: 5px;">Export Data ↓</button>
+                    
+                    <!-- Export Menu Dropdown -->
+                    <div id="exportMenu" class="export-menu" style="display: none;">
+                        <div class="export-section">
+                            <h4>Spatial Heatmaps</h4>
+                            <button id="exportHeatmapImages" class="export-btn">Export as Images (PNG)</button>
+                            <button id="exportHeatmapData" class="export-btn">Export as Data (JSON)</button>
+                        </div>
+                        
+                        <div class="export-section">
+                            <h4>Trajectories</h4>
+                            <button id="exportTrajectoryJSON" class="export-btn">Export as JSON</button>
+                            <button id="exportTrajectoryCSV" class="export-btn">Export as CSV</button>
+                        </div>
+                        
+                        <div class="export-section">
+                            <h4>Activity Analysis</h4>
+                            <button id="exportActivityJSON" class="export-btn">Export as JSON</button>
+                            <button id="exportActivityCSV" class="export-btn">Export as CSV</button>
+                        </div>
+                        
+                        <div class="export-section">
+                            <h4>Proximity Analysis</h4>
+                            <button id="exportProximityJSON" class="export-btn">Export as JSON</button>
+                            <button id="exportProximityCSV" class="export-btn">Export as CSV</button>
+                        </div>
+                        
+                        <div class="export-section">
+                            <h4>Combined Data</h4>
+                            <button id="exportAllJSON" class="export-btn">Export All as JSON</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="control-group">
@@ -196,6 +239,7 @@
                     <button id="nextFrameBtn">Next →</button>
                     <button id="prevKeyframeBtn">← Prev KF</button>
                     <button id="nextKeyframeBtn">Next KF →</button>
+                    <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
                 </div>
             </div>
             
@@ -205,10 +249,7 @@
             </div>
         </div>
     </div>
-    
-    <!-- External libraries -->
-    <script src="/static/js/fft.js"></script>
-    
+        
     <!-- ES6 Module entry point -->
     <script type="module" src="/static/js/main.js"></script>
 </body>

@@ -227,6 +227,9 @@ export class DetectionManager {
             this.hideDetectionModal();
             // Reload the video with new keyframes
             const code = document.getElementById('codeInput').value;
+            // Emit detection completed event first
+            this.eventBus.emit('detection:completed', { code });
+            // Then load the video
             this.eventBus.emit('ui:quickLoad', { code });
         }, 2000);
     }

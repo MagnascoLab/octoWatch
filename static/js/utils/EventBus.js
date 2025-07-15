@@ -111,6 +111,17 @@ export const Events = {
     UI_MODAL_HIDE: 'ui:modalHide',
     DOWNLOAD_HEATMAPS: 'ui:downloadHeatmaps',
     
+    // Export events
+    EXPORT_HEATMAP_IMAGES: 'export:heatmapImages',
+    EXPORT_HEATMAP_DATA: 'export:heatmapData',
+    EXPORT_TRAJECTORY_JSON: 'export:trajectoryJSON',
+    EXPORT_TRAJECTORY_CSV: 'export:trajectoryCSV',
+    EXPORT_ACTIVITY_JSON: 'export:activityJSON',
+    EXPORT_ACTIVITY_CSV: 'export:activityCSV',
+    EXPORT_PROXIMITY_JSON: 'export:proximityJSON',
+    EXPORT_PROXIMITY_CSV: 'export:proximityCSV',
+    EXPORT_ALL_JSON: 'export:allJSON',
+    
     // Error events
     ERROR: 'error',
     WARNING: 'warning'
