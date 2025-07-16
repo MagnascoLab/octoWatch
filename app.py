@@ -16,6 +16,8 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs('videos', exist_ok=True)
+os.makedirs('videos_keyframes', exist_ok=True)
 
 @app.route('/')
 def index():
