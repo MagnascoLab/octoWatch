@@ -45,11 +45,11 @@ export class DetectionManager {
     setupEventHandlers() {
         // Listen for code validation
         this.eventBus.on('detection:checkCode', async (data) => {
-            await this.checkCode(data.code);
+            await this.checkCode(data.code, data.explicit);
         });
     }
     
-    async checkCode(code) {
+    async checkCode(code, explicit = false) {
         try {
             const response = await fetch(`/check-keyframes/${code}`);
             const data = await response.json();
@@ -59,12 +59,16 @@ export class DetectionManager {
                     this.codeStatus.textContent = 'Video found - no keyframes detected';
                     this.codeStatus.className = 'code-status info';
                     this.runDetectionBtn.style.display = 'inline-block';
+                    this.runDetectionBtn.innerHTML = 'Run Detection';
                 } else if (data.has_video && data.has_keyframes) {
                     this.codeStatus.textContent = 'Video and keyframes found';
                     this.codeStatus.className = 'code-status success';
-                    this.runDetectionBtn.style.display = 'none';
-                    // Automatically load the video since both exist
-                    this.eventBus.emit('ui:quickLoad', { code });
+                    this.runDetectionBtn.style.display = 'inline-block';
+                    this.runDetectionBtn.innerHTML = 'Re-run Detection';
+                    if (explicit) {
+                        // If user explicitly submitted, load the video
+                        this.eventBus.emit('ui:quickLoad', { code });
+                    }
                 } else {
                     this.codeStatus.textContent = 'Video not found';
                     this.codeStatus.className = 'code-status error';

@@ -24,6 +24,7 @@
                             <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
                             <button type="submit">Load by Code</button>
                             <button type="button" id="runDetectionBtn" style="display: none;">Run Detection</button>
+                            <br>
                             <button type="button" id="browseCodesBtn" class="browse-codes-btn">Browse Available Codes</button>
                         </div>
                         <div id="codeStatus" class="code-status"></div>
@@ -76,11 +77,11 @@
                 </div>
             </div>
         </div>
-        
-        <div id="visualizerSection" class="visualizer-section" style="display: none;">
-            <div class="top-bar">
+        <div class="top-bar">
                 <button id="loadNewBtn" class="load-new-btn">Load New Video</button>
             </div>
+        <div id="visualizerSection" class="visualizer-section" style="display: none;">
+            
             <div class="video-container">
                 <video id="videoPlayer" controls></video>
                 <canvas id="overlayCanvas"></canvas>

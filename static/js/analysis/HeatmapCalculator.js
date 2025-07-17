@@ -197,9 +197,9 @@ export class HeatmapCalculator {
      * @param {Float32Array} heatmap - Heatmap to normalize
      */
     normalizeHeatmap(heatmap) {
-        // Start w/ a max value equal to 15 seconds of video
+        // Start w/ a max value equal to 30 seconds of video
         const fps = this.keyframesData.video_info.fps;
-        let maxValue = 15 * fps; // 15 seconds of video at current FPS
+        let maxValue = 30 * fps; // 30 seconds of video at current FPS
         for (let i = 0; i < heatmap.length; i++) {
             maxValue = Math.max(maxValue, heatmap[i]);
         }

@@ -125,7 +125,7 @@ export class UIManager {
         // Quick load form
         this.elements.quickLoadForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            this.handleQuickLoadSubmit();
+            this.handleQuickLoadSubmit(true);
         });
         
         // Browse codes button
@@ -424,10 +424,10 @@ export class UIManager {
     /**
      * Handle quick load form submission
      */
-    handleQuickLoadSubmit() {
+    handleQuickLoadSubmit(explicit = false) {
         const code = this.elements.codeInput.value.trim();
         // Only check if keyframes exist - DetectionManager will handle loading if appropriate
-        this.eventBus.emit('detection:checkCode', { code });
+        this.eventBus.emit('detection:checkCode', { code, explicit });
     }
 
     /**
@@ -482,13 +482,15 @@ export class UIManager {
             // Make clickable
             codeElement.addEventListener('click', () => {
                 this.elements.codeInput.value = codeInfo.code;
-                if (codeInfo.has_keyframes) {
+                this.handleQuickLoadSubmit();
+                //this.elements.codeInput.focus();
+                //if (codeInfo.has_keyframes) {
                     // Auto-submit if keyframes exist
-                    this.handleQuickLoadSubmit();
-                } else {
+                    //this.handleQuickLoadSubmit();
+                /*} else {
                     // Just populate the field and let user decide
                     this.elements.codeInput.focus();
-                }
+                }*/
             });
             
             this.elements.codesGrid.appendChild(codeElement);
