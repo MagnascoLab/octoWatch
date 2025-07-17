@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Octopus Tracking Visualizer</title>
+    <title>OctoWatch</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Octopus Tracking Visualizer</h1>
+        <h1>OctoWatch</h1>
         
         <!-- Load Files Modal -->
         <div id="loadModal" class="modal">
@@ -45,7 +45,7 @@
                     </div>
                     <button type="submit">Upload Video</button>
                     <p style="font-size: 14px; color: #666; margin-top: 10px;">
-                        Video will be auto-assigned the next available MVI code
+                        Video will be auto-assigned the next available MVI code if not labelled.
                     </p>
                 </form>
             </div>
@@ -201,16 +201,16 @@
                 <div class="control-group">
                     <label>Activity Metric:</label>
                     <select id="activityMetric">
-                        <option value="centroid">Centroid Distance</option>
-                        <option value="iou">Union - Intersection</option>
+                        <option value="centroid">Centroid-Based</option>
+                        <option value="iou">Box-Based</option>
                     </select>
                 </div>
                 
                 <div class="control-group">
                     <label>Proximity Metric:</label>
                     <select id="proximityMetric">
-                        <option value="edge">Edge-based (Current)</option>
-                        <option value="centroid">Centroid-based</option>
+                        <option value="edge">Box-Based</option>
+                        <option value="centroid">Centroid-Based</option>
                     </select>
                 </div>
                 

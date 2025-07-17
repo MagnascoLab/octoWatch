@@ -8,7 +8,7 @@ import queue
 import subprocess
 import sys
 from detection_manager import detection_manager
-
+import re
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024 * 1024  # 8GB max file size
@@ -44,16 +44,32 @@ def upload_video():
         if code.isdigit():
             existing_codes.add(int(code))
     
-    # Find the next available code (starting from 0001)
-    next_code = 1
-    while next_code in existing_codes and next_code <= 9999:
-        next_code += 1
+    # Try to extract a 4-digit code from the uploaded filename
+    code_from_filename = None
+    # Look for any 4-digit sequence surrounded by non-digits (or at string boundaries)
+    matches = re.findall(r'(?:^|\D)(\d{4})(?:\D|$)', video_file.filename)
     
-    if next_code > 9999:
-        return jsonify({'error': 'Maximum video limit reached (9999)'}), 400
+    if matches:
+        # Use the first 4-digit code found
+        potential_code = int(matches[0])
+        # Check if this code is available
+        if potential_code not in existing_codes and 1 <= potential_code <= 9999:
+            code_from_filename = f"{potential_code:04d}"
     
-    # Format code as 4-digit string
-    code = f"{next_code:04d}"
+    if code_from_filename:
+        # Use the code from filename
+        code = code_from_filename
+    else:
+        # Find the next available code (starting from 0001)
+        next_code = 1
+        while next_code in existing_codes and next_code <= 9999:
+            next_code += 1
+        
+        if next_code > 9999:
+            return jsonify({'error': 'Maximum video limit reached (9999)'}), 400
+        
+        # Format code as 4-digit string
+        code = f"{next_code:04d}"
     
     # Save video with MVI naming convention
     video_extension = Path(video_file.filename).suffix.lower()
@@ -67,7 +83,6 @@ def upload_video():
         'video_filename': video_filename,
         'message': f'Video uploaded successfully with code {code}. You can now run detection.'
     })
-
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
