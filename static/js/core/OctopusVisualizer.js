@@ -42,6 +42,7 @@ export class OctopusVisualizer {
         this.currentFrame = 0;
         this.animationId = null;
         this.videoFilename = null;
+        this.currentVideoCode = null;
         
         // Initialize modules
         this.initializeModules();
@@ -135,6 +136,18 @@ export class OctopusVisualizer {
                 this.uiManager.displayAvailableCodes(codes);
             } catch (error) {
                 this.uiManager.showError('Failed to fetch available codes');
+            }
+        });
+        
+        // Reload current data (after keyframe deletion)
+        this.eventBus.on('ui:reloadCurrentData', async () => {
+            if (this.currentVideoCode) {
+                try {
+                    await this.dataLoader.handleQuickLoad(this.currentVideoCode);
+                    this.uiManager.showSuccess('Data reloaded successfully');
+                } catch (error) {
+                    this.uiManager.showError('Failed to reload data: ' + error.message);
+                }
             }
         });
         
@@ -234,6 +247,12 @@ export class OctopusVisualizer {
         this.videoFilename = data.videoFilename;
         this.dataExporter.setVideoFilename(this.videoFilename);
         this.videoController.loadVideo(data.videoUrl);
+        
+        // Extract and store the video code for reloading
+        const codeMatch = this.videoFilename?.match(/MVI_(\d{4})/);
+        if (codeMatch) {
+            this.currentVideoCode = codeMatch[1];
+        }
         
         // Calculate all analysis data
         this.performanceMonitor.measureModuleLoad('analysis', async () => {

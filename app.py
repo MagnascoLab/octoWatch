@@ -250,6 +250,105 @@ def list_available_codes():
     
     return jsonify({'codes': codes_info})
 
+@app.route('/delete-keyframes/<code>', methods=['POST'])
+def delete_keyframes(code):
+    """Delete keyframes within a specified time range"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    # Get request data
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    start_frame = data.get('start_frame')
+    end_frame = data.get('end_frame')
+    side = data.get('side', 'both')  # Default to 'both' if not specified
+    
+    if start_time is None or end_time is None:
+        return jsonify({'error': 'start_time and end_time are required'}), 400
+    
+    # Load keyframes file
+    keyframes_path = Path('videos_keyframes') / f'MVI_{code}_keyframes.json'
+    if not keyframes_path.exists():
+        return jsonify({'error': 'Keyframes file not found'}), 404
+    
+    try:
+        with open(keyframes_path, 'r') as f:
+            keyframes_data = json.load(f)
+    except Exception as e:
+        return jsonify({'error': f'Failed to load keyframes: {str(e)}'}), 500
+    
+    # Create backup before deletion
+    import shutil
+    from datetime import datetime
+    backup_path = keyframes_path.with_suffix(f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+    shutil.copy2(keyframes_path, backup_path)
+    
+    # Count affected keyframes before deletion
+    affected_count = 0
+    deleted_left = 0
+    deleted_right = 0
+    
+    # Process keyframes
+    if 'keyframes' in keyframes_data:
+        for frame_key, frame_data in keyframes_data['keyframes'].items():
+            timestamp = frame_data.get('timestamp', 0)
+            
+            # Check if timestamp is within range
+            if start_time <= timestamp <= end_time:
+                # Delete based on side selection
+                if side == 'both' or side == 'left':
+                    if frame_data.get('left_detections'):
+                        deleted_left += len(frame_data['left_detections'])
+                        frame_data['left_detections'] = []
+                        frame_data['has_left_octopus'] = False
+                        affected_count += 1
+                
+                if side == 'both' or side == 'right':
+                    if frame_data.get('right_detections'):
+                        deleted_right += len(frame_data['right_detections'])
+                        frame_data['right_detections'] = []
+                        frame_data['has_right_octopus'] = False
+                        affected_count += 1
+    
+    # Save updated keyframes
+    try:
+        with open(keyframes_path, 'w') as f:
+            json.dump(keyframes_data, f, indent=2)
+    except Exception as e:
+        # Restore from backup if save fails
+        shutil.move(backup_path, keyframes_path)
+        return jsonify({'error': f'Failed to save keyframes: {str(e)}'}), 500
+    
+    # Print summary
+    print(f"=== KEYFRAME DELETION COMPLETED ===")
+    print(f"Video ID: MVI_{code}")
+    print(f"Side: {side.upper()}")
+    print(f"Time Range: {start_time}s - {end_time}s")
+    print(f"Frames Range: {start_frame} - {end_frame}")
+    print(f"Keyframes Affected: {affected_count}")
+    print(f"Left Detections Deleted: {deleted_left}")
+    print(f"Right Detections Deleted: {deleted_right}")
+    print(f"Backup Created: {backup_path.name}")
+    print(f"===================================")
+    
+    return jsonify({
+        'success': True,
+        'message': 'Keyframes deleted successfully',
+        'video_id': f'MVI_{code}',
+        'side': side,
+        'start_time': start_time,
+        'end_time': end_time,
+        'keyframes_affected': affected_count,
+        'left_detections_deleted': deleted_left,
+        'right_detections_deleted': deleted_right,
+        'backup_file': backup_path.name
+    })
+
 @app.route('/delete-video/<code>', methods=['DELETE'])
 def delete_video(code):
     """Delete video and associated keyframes by code"""

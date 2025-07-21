@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OctoWatch</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <div class="container">
@@ -86,6 +88,24 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
                     <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Keyframe Deletion Confirmation Modal -->
+        <div id="keyframeDeletionModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;max-height: 250px;">
+                <h3>Confirm Keyframe Deletion</h3>
+                <p id="keyframeDeletionMessage"></p>
+                <div class="deletion-info">
+                    <div>Side: <span id="deletionSide"></span></div>
+                    <div>Start Time: <span id="deletionStartTime"></span></div>
+                    <div>End Time: <span id="deletionEndTime"></span></div>
+                    <div>Frames to Delete: <span id="deletionFrameCount"></span></div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button id="cancelKeyframeDeletionBtn" class="secondary-btn">Cancel</button>
+                    <button id="confirmKeyframeDeletionBtn" class="danger-btn">Delete Keyframes</button>
                 </div>
             </div>
         </div>
@@ -240,7 +260,17 @@
                         <input type="range" id="freqRankSlider" min="1" max="10" value="1" style="width: 100%; margin-top: 5px;">
                         <div id="freqInfo" style="font-size: 11px; color: #666; margin-top: 8px; text-align: center;"></div>
                     </div>
-                    <label>Frame: <span id="frameNumber">0</span></label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label>Frame: <span id="frameNumber">0</span></label>
+                        <div id="deletionSideContainer" style="display: none;">
+                            <label style="margin-right: 10px;">Delete keyframes from:</label>
+                            <select id="deletionSideSelect">
+                                <option value="both">Both Sides</option>
+                                <option value="left">Left Side Only</option>
+                                <option value="right">Right Side Only</option>
+                            </select>
+                        </div>
+                    </div>
                     <canvas id="activityHeatmap"></canvas>
                     <input type="range" id="frameSlider" min="0" max="0" value="0">
                     
@@ -254,6 +284,7 @@
                     <button id="prevKeyframeBtn">← Prev KF</button>
                     <button id="nextKeyframeBtn">Next KF →</button>
                     <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+                    <button id="deleteKeyframesBtn" class="delete-keyframes-btn">🗑️ Delete Keyframes</button>
                 </div>
             </div>
             

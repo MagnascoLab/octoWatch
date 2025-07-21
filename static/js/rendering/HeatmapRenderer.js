@@ -31,6 +31,12 @@ export class HeatmapRenderer {
         this.frequencyRank = 1;
         this.currentFrame = 0;
         
+        // Deletion selection
+        this.deletionSelection = {
+            startProgress: null,
+            endProgress: null
+        };
+        
         this.setupEventListeners();
     }
 
@@ -69,6 +75,12 @@ export class HeatmapRenderer {
                 this.frequencyRank = data.value;
             }
         });
+        
+        this.eventBus.on(Events.DELETION_SELECTION_UPDATE, (data) => {
+            this.deletionSelection.startProgress = data.startProgress;
+            this.deletionSelection.endProgress = data.endProgress;
+            this.render();
+        });
     }
 
     /**
@@ -100,6 +112,9 @@ export class HeatmapRenderer {
         // Draw position indicator
         this.drawPositionIndicator();
         this.drawTextOverlay();
+        
+        // Draw deletion selection overlay if active
+        this.drawDeletionSelection();
     }
 
     /**
@@ -328,5 +343,47 @@ export class HeatmapRenderer {
             width: this.canvas.width,
             height: this.canvas.height
         };
+    }
+    
+    /**
+     * Draw deletion selection overlay
+     */
+    drawDeletionSelection() {
+        const { startProgress, endProgress } = this.deletionSelection;
+        
+        if (startProgress === null || endProgress === null) return;
+        
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        // Calculate x positions
+        const startX = startProgress * width;
+        const endX = endProgress * width;
+        const selectionWidth = Math.abs(endX - startX);
+        const leftX = Math.min(startX, endX);
+        
+        // Draw semi-transparent red overlay
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.fillRect(leftX, 0, selectionWidth, height);
+        
+        // Draw border lines
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        
+        // Left border
+        ctx.beginPath();
+        ctx.moveTo(leftX, 0);
+        ctx.lineTo(leftX, height);
+        ctx.stroke();
+        
+        // Right border
+        ctx.beginPath();
+        ctx.moveTo(leftX + selectionWidth, 0);
+        ctx.lineTo(leftX + selectionWidth, height);
+        ctx.stroke();
+        
+        ctx.setLineDash([]);
     }
 }

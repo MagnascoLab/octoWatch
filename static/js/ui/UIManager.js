@@ -74,6 +74,19 @@ export class UIManager {
             proximitySensitivitySlider: document.getElementById('proximitySensitivitySlider'),
             proximitySensitivityValue: document.getElementById('proximitySensitivityValue'),
             
+            // Deletion controls
+            deleteKeyframesBtn: document.getElementById('deleteKeyframesBtn'),
+            keyframeDeletionModal: document.getElementById('keyframeDeletionModal'),
+            keyframeDeletionMessage: document.getElementById('keyframeDeletionMessage'),
+            deletionSide: document.getElementById('deletionSide'),
+            deletionStartTime: document.getElementById('deletionStartTime'),
+            deletionEndTime: document.getElementById('deletionEndTime'),
+            deletionFrameCount: document.getElementById('deletionFrameCount'),
+            cancelKeyframeDeletionBtn: document.getElementById('cancelKeyframeDeletionBtn'),
+            confirmKeyframeDeletionBtn: document.getElementById('confirmKeyframeDeletionBtn'),
+            deletionSideContainer: document.getElementById('deletionSideContainer'),
+            deletionSideSelect: document.getElementById('deletionSideSelect'),
+            
             // Analysis controls
             activityMetric: document.getElementById('activityMetric'),
             proximityMetric: document.getElementById('proximityMetric'),
@@ -94,8 +107,18 @@ export class UIManager {
             proximitySensitivity: DEFAULTS.PROXIMITY_SENSITIVITY,
             trajectoryAlpha: DEFAULTS.TRAJECTORY_ALPHA,
             heatmapAlpha: DEFAULTS.HEATMAP_ALPHA,
-            frequencyRank: DEFAULTS.FREQUENCY_RANK
+            frequencyRank: DEFAULTS.FREQUENCY_RANK,
+            deletionMode: false,
+            deletionSelection: {
+                startProgress: null,
+                endProgress: null,
+                isDragging: false
+            }
         };
+        
+        // Data references
+        this.keyframesData = null;
+        this.videoFilename = null;
         
         this.setupEventListeners();
         this.setupEventHandlers();
@@ -114,6 +137,9 @@ export class UIManager {
             if (e.target === this.elements.modal) {
                 this.hideModal();
             }
+            if (e.target === this.elements.keyframeDeletionModal) {
+                this.hideKeyframeDeletionModal();
+            }
         });
         
         // Delete confirmation modal controls
@@ -130,6 +156,10 @@ export class UIManager {
                 this.hideDeleteConfirmation();
             }
         });
+        
+        // Keyframe deletion modal controls
+        this.elements.cancelKeyframeDeletionBtn?.addEventListener('click', () => this.hideKeyframeDeletionModal());
+        this.elements.confirmKeyframeDeletionBtn?.addEventListener('click', () => this.handleKeyframeDeletionConfirm());
         
         // Upload form
         this.elements.uploadForm.addEventListener('submit', (e) => {
@@ -177,6 +207,11 @@ export class UIManager {
         // Screenshot button
         this.elements.screenshotBtn.addEventListener('click', () => {
             this.eventBus.emit('ui:takeScreenshot');
+        });
+        
+        // Delete keyframes button
+        this.elements.deleteKeyframesBtn.addEventListener('click', () => {
+            this.toggleDeletionMode();
         });
         
         // Visualization options
@@ -350,12 +385,8 @@ export class UIManager {
             });
         });
         
-        // Heatmap click for seeking
-        this.elements.activityHeatmap.addEventListener('click', (e) => {
-            const rect = this.elements.activityHeatmap.getBoundingClientRect();
-            const progress = (e.clientX - rect.left) / rect.width;
-            this.eventBus.emit('ui:heatmapSeek', { progress });
-        });
+        // Heatmap interaction (seeking and deletion selection)
+        this.setupHeatmapInteraction();
     }
 
     /**
@@ -394,6 +425,9 @@ export class UIManager {
         
         // Data loaded
         this.eventBus.on(Events.DATA_LOADED, (data) => {
+            this.keyframesData = data.keyframesData;
+            this.videoFilename = data.videoFilename;
+            
             const fps = data.keyframesData.video_info.fps || DEFAULTS.FPS;
             const totalFrames = data.keyframesData.video_info.total_frames_processed;
             this.elements.frameSlider.max = totalFrames;
@@ -429,7 +463,12 @@ export class UIManager {
         const videoFile = this.elements.videoFile.files[0];
         
         if (!videoFile) {
-            alert('Please select a video file');
+            Swal.fire({
+                icon: 'warning',
+                title: 'No file selected',
+                text: 'Please select a video file',
+                confirmButtonColor: '#007bff'
+            });
             return;
         }
         
@@ -595,38 +634,61 @@ export class UIManager {
      * @param {string} message - Error message to display
      */
     showError(message) {
-        alert(message); // Can be replaced with better UI notification
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: message,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
     }
     
     /**
      * Show success message
      * @param {string} message - Success message to display
+     * @param {string} title - Optional title
+     */
+    showSuccess(message, title = 'Success!') {
+        Swal.fire({
+            icon: 'success',
+            title: title,
+            text: message,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+    }
+    
+    /**
+     * Show info message
+     * @param {string} message - Info message to display
+     * @param {string} title - Optional title
+     */
+    showInfo(message, title = 'Info') {
+        Swal.fire({
+            icon: 'info',
+            title: title,
+            text: message,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+    }
+    
+    /**
+     * Show delete success message
+     * @param {string} message - Success message to display
      */
     showDeleteSuccess(message) {
-        // Update modal to show success state
-        const modal = document.getElementById('deleteConfirmModal');
-        const modalContent = modal.querySelector('.modal-content');
-        const title = modalContent.querySelector('h3');
-        const messageEl = document.getElementById('deleteConfirmMessage');
-        const buttonsDiv = modalContent.querySelector('div[style*="flex"]');
-        
-        // Update content for success state
-        title.textContent = 'Delete Successful';
-        messageEl.textContent = message;
-        messageEl.style.color = '#28a745';
-        
-        // Hide buttons and show only a close button
-        buttonsDiv.innerHTML = '<button id="closeDeleteSuccessBtn" class="primary-btn">Close</button>';
-        
-        // Add event listener to close button
-        document.getElementById('closeDeleteSuccessBtn').addEventListener('click', () => {
-            this.hideDeleteConfirmation();
-        });
-        
-        // Auto-close after 1 seconds
-        setTimeout(() => {
-            this.hideDeleteConfirmation();
-        }, 1000);
+        this.hideDeleteConfirmation();
+        this.showSuccess(message);
     }
 
     /**
@@ -766,5 +828,289 @@ export class UIManager {
         } catch (error) {
             this.showError('Network error while deleting video');
         }
+    }
+    
+    /**
+     * Setup heatmap interaction for seeking and deletion selection
+     */
+    setupHeatmapInteraction() {
+        const heatmap = this.elements.activityHeatmap;
+        
+        heatmap.addEventListener('mousedown', (e) => {
+            const rect = heatmap.getBoundingClientRect();
+            const progress = (e.clientX - rect.left) / rect.width;
+            
+            if (this.state.deletionMode) {
+                // Start deletion selection
+                this.state.deletionSelection.isDragging = true;
+                this.state.deletionSelection.startProgress = progress;
+                this.state.deletionSelection.endProgress = progress;
+                this.updateDeletionSelection();
+            }
+        });
+        
+        heatmap.addEventListener('mousemove', (e) => {
+            if (this.state.deletionMode && this.state.deletionSelection.isDragging) {
+                const rect = heatmap.getBoundingClientRect();
+                const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                this.state.deletionSelection.endProgress = progress;
+                this.updateDeletionSelection();
+            }
+        });
+        
+        heatmap.addEventListener('mouseup', (e) => {
+            if (this.state.deletionMode && this.state.deletionSelection.isDragging) {
+                this.state.deletionSelection.isDragging = false;
+                this.finalizeDeletionSelection();
+            } else if (!this.state.deletionMode) {
+                // Normal seeking behavior
+                const rect = heatmap.getBoundingClientRect();
+                const progress = (e.clientX - rect.left) / rect.width;
+                this.eventBus.emit('ui:heatmapSeek', { progress });
+            }
+        });
+        
+        // Handle mouse leave
+        heatmap.addEventListener('mouseleave', () => {
+            if (this.state.deletionSelection.isDragging) {
+                this.state.deletionSelection.isDragging = false;
+                this.finalizeDeletionSelection();
+            }
+        });
+    }
+    
+    /**
+     * Toggle deletion mode
+     */
+    toggleDeletionMode() {
+        this.state.deletionMode = !this.state.deletionMode;
+        
+        if (this.state.deletionMode) {
+            // Entering deletion mode
+            this.elements.deleteKeyframesBtn.classList.add('active');
+            this.elements.deleteKeyframesBtn.innerHTML = '❌ Cancel';
+            this.elements.activityHeatmap.classList.add('deletion-mode');
+            this.elements.deletionSideContainer.style.display = 'block';
+            
+            // Show deletion mode notification
+            Swal.fire({
+                icon: 'info',
+                title: 'Deletion Mode Active',
+                text: 'Drag on the heatmap to select keyframes to delete',
+                toast: true,
+                position: 'top',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true,
+                background: '#dc3545',
+                color: '#fff',
+                iconColor: '#fff'
+            });
+            
+            // Reset selection
+            this.state.deletionSelection = {
+                startProgress: null,
+                endProgress: null,
+                isDragging: false
+            };
+        } else {
+            // Exiting deletion mode
+            this.elements.deleteKeyframesBtn.classList.remove('active');
+            this.elements.deleteKeyframesBtn.innerHTML = '🗑️ Delete Keyframes';
+            this.elements.activityHeatmap.classList.remove('deletion-mode');
+            this.elements.deletionSideContainer.style.display = 'none';
+            this.clearDeletionSelection();
+        }
+        
+        this.eventBus.emit(Events.DELETION_MODE_TOGGLE, { active: this.state.deletionMode });
+    }
+    
+    /**
+     * Update deletion selection during drag
+     */
+    updateDeletionSelection() {
+        const { startProgress, endProgress } = this.state.deletionSelection;
+        
+        // Ensure start is before end
+        const start = Math.min(startProgress, endProgress);
+        const end = Math.max(startProgress, endProgress);
+        
+        this.eventBus.emit(Events.DELETION_SELECTION_UPDATE, {
+            startProgress: start,
+            endProgress: end
+        });
+    }
+    
+    /**
+     * Clear deletion selection
+     */
+    clearDeletionSelection() {
+        this.state.deletionSelection = {
+            startProgress: null,
+            endProgress: null,
+            isDragging: false
+        };
+        
+        this.eventBus.emit(Events.DELETION_SELECTION_UPDATE, {
+            startProgress: null,
+            endProgress: null
+        });
+    }
+    
+    /**
+     * Finalize deletion selection and show confirmation
+     */
+    finalizeDeletionSelection() {
+        const { startProgress, endProgress } = this.state.deletionSelection;
+        
+        if (startProgress === null || endProgress === null) return;
+        
+        // Ensure start is before end
+        const start = Math.min(startProgress, endProgress);
+        const end = Math.max(startProgress, endProgress);
+        
+        // Don't process if the selection is too small
+        if (Math.abs(end - start) < 0.001) {
+            this.clearDeletionSelection();
+            return;
+        }
+        
+        // Get frame information
+        const maxFrames = this.keyframesData?.video_info?.total_frames_processed || 0;
+        const fps = this.keyframesData?.video_info?.fps || 30;
+        
+        const startFrame = Math.floor(start * maxFrames);
+        const endFrame = Math.floor(end * maxFrames);
+        const startTime = startFrame / fps;
+        const endTime = endFrame / fps;
+        
+        // Get selected side
+        const side = this.elements.deletionSideSelect.value;
+        const sideText = side === 'both' ? 'Both Sides' : 
+                        side === 'left' ? 'Left Side Only' : 'Right Side Only';
+        
+        // Update modal with selection info
+        this.elements.keyframeDeletionMessage.textContent = 
+            `This will delete all keyframes between the selected time range.`;
+        this.elements.deletionSide.textContent = sideText;
+        this.elements.deletionStartTime.textContent = `${startTime.toFixed(2)}s (frame ${startFrame})`;
+        this.elements.deletionEndTime.textContent = `${endTime.toFixed(2)}s (frame ${endFrame})`;
+        this.elements.deletionFrameCount.textContent = `${endFrame - startFrame + 1}`;
+        
+        // Store selection for confirmation
+        this.pendingDeletion = {
+            startTime,
+            endTime,
+            startFrame,
+            endFrame,
+            side
+        };
+        
+        // Show confirmation modal
+        this.showKeyframeDeletionModal();
+    }
+    
+    /**
+     * Show keyframe deletion modal
+     */
+    showKeyframeDeletionModal() {
+        this.elements.keyframeDeletionModal.style.display = 'flex';
+    }
+    
+    /**
+     * Hide keyframe deletion modal
+     */
+    hideKeyframeDeletionModal() {
+        this.elements.keyframeDeletionModal.style.display = 'none';
+        this.clearDeletionSelection();
+    }
+    
+    /**
+     * Handle keyframe deletion confirmation
+     */
+    async handleKeyframeDeletionConfirm() {
+        if (!this.pendingDeletion) return;
+        
+        const videoCode = this.videoFilename?.match(/MVI_(\d{4})/)?.[1];
+        if (!videoCode) {
+            this.showError('Unable to determine video code');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/delete-keyframes/${videoCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    start_time: this.pendingDeletion.startTime,
+                    end_time: this.pendingDeletion.endTime,
+                    start_frame: this.pendingDeletion.startFrame,
+                    end_frame: this.pendingDeletion.endFrame,
+                    side: this.pendingDeletion.side
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Show detailed success message
+                const stats = data.keyframes_affected > 0 ? 
+                    `Deleted ${data.left_detections_deleted + data.right_detections_deleted} detections from ${data.keyframes_affected} keyframes` :
+                    'No keyframes were found in the selected range';
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Keyframes Deleted!',
+                    html: `
+                        <div style="text-align: left;">
+                            <p><strong>${stats}</strong></p>
+                            <p style="font-size: 0.9em; color: #666;">
+                                Side: ${this.pendingDeletion.side === 'both' ? 'Both' : 
+                                       this.pendingDeletion.side === 'left' ? 'Left Only' : 'Right Only'}<br>
+                                Time Range: ${this.pendingDeletion.startTime.toFixed(2)}s - ${this.pendingDeletion.endTime.toFixed(2)}s<br>
+                                Backup Created: ${data.backup_file}
+                            </p>
+                        </div>
+                    `,
+                    confirmButtonColor: '#28a745',
+                    confirmButtonText: 'OK'
+                });
+                
+                this.hideKeyframeDeletionModal();
+                this.toggleDeletionMode(); // Exit deletion mode
+                
+                // Emit event for other components to update
+                this.eventBus.emit(Events.KEYFRAMES_DELETE, {
+                    ...this.pendingDeletion,
+                    keyframes_affected: data.keyframes_affected,
+                    left_detections_deleted: data.left_detections_deleted,
+                    right_detections_deleted: data.right_detections_deleted
+                });
+                
+                // Reload the keyframes data to reflect changes
+                setTimeout(() => {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Refreshing Data',
+                        text: 'Reloading keyframes to reflect changes...',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    
+                    // Trigger reload of current video
+                    this.eventBus.emit('ui:reloadCurrentData');
+                }, 1000);
+            } else {
+                this.showError(data.error || 'Failed to delete keyframes');
+            }
+        } catch (error) {
+            this.showError('Network error while deleting keyframes');
+        }
+        
+        this.pendingDeletion = null;
     }
 }
