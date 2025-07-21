@@ -116,6 +116,21 @@ export class UIManager {
             }
         });
         
+        // Delete confirmation modal controls
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        
+        cancelDeleteBtn?.addEventListener('click', () => this.hideDeleteConfirmation());
+        confirmDeleteBtn?.addEventListener('click', () => this.handleDeleteConfirm());
+        
+        // Close modal on outside click
+        deleteConfirmModal?.addEventListener('click', (e) => {
+            if (e.target === deleteConfirmModal) {
+                this.hideDeleteConfirmation();
+            }
+        });
+        
         // Upload form
         this.elements.uploadForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -476,8 +491,19 @@ export class UIManager {
             statusIcon.textContent = codeInfo.has_keyframes ? '✅' : '🟡';
             statusIcon.title = codeInfo.has_keyframes ? 'Ready to load' : 'Needs detection';
             
+            // Add delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'code-delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.title = 'Delete this video';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation(); // Prevent triggering the code click
+                this.showDeleteConfirmation(codeInfo.code);
+            };
+            
             codeElement.appendChild(codeNumber);
             codeElement.appendChild(statusIcon);
+            codeElement.appendChild(deleteBtn);
             
             // Make clickable
             codeElement.addEventListener('click', () => {
@@ -571,6 +597,37 @@ export class UIManager {
     showError(message) {
         alert(message); // Can be replaced with better UI notification
     }
+    
+    /**
+     * Show success message
+     * @param {string} message - Success message to display
+     */
+    showDeleteSuccess(message) {
+        // Update modal to show success state
+        const modal = document.getElementById('deleteConfirmModal');
+        const modalContent = modal.querySelector('.modal-content');
+        const title = modalContent.querySelector('h3');
+        const messageEl = document.getElementById('deleteConfirmMessage');
+        const buttonsDiv = modalContent.querySelector('div[style*="flex"]');
+        
+        // Update content for success state
+        title.textContent = 'Delete Successful';
+        messageEl.textContent = message;
+        messageEl.style.color = '#28a745';
+        
+        // Hide buttons and show only a close button
+        buttonsDiv.innerHTML = '<button id="closeDeleteSuccessBtn" class="primary-btn">Close</button>';
+        
+        // Add event listener to close button
+        document.getElementById('closeDeleteSuccessBtn').addEventListener('click', () => {
+            this.hideDeleteConfirmation();
+        });
+        
+        // Auto-close after 1 seconds
+        setTimeout(() => {
+            this.hideDeleteConfirmation();
+        }, 1000);
+    }
 
     /**
      * Show upload success message
@@ -642,5 +699,72 @@ export class UIManager {
      */
     hideExportMenu() {
         this.elements.exportMenu.style.display = 'none';
+    }
+    
+    /**
+     * Show delete confirmation dialog
+     * @param {string} code - The video code to delete
+     */
+    showDeleteConfirmation(code) {
+        this.deleteCode = code;
+        const modal = document.getElementById('deleteConfirmModal');
+        const message = document.getElementById('deleteConfirmMessage');
+        message.textContent = `Are you sure you want to delete video MVI_${code}_proxy and its associated keyframes?`;
+        modal.style.display = 'flex';
+    }
+    
+    /**
+     * Hide delete confirmation dialog
+     */
+    hideDeleteConfirmation() {
+        const modal = document.getElementById('deleteConfirmModal');
+        modal.style.display = 'none';
+        this.deleteCode = null;
+        
+        // Reset modal to original state
+        const modalContent = modal.querySelector('.modal-content');
+        const title = modalContent.querySelector('h3');
+        const messageEl = document.getElementById('deleteConfirmMessage');
+        const buttonsDiv = modalContent.querySelector('div[style*="flex"]');
+        
+        // Reset content
+        title.textContent = 'Confirm Delete';
+        messageEl.style.color = '';
+        
+        // Restore original buttons
+        buttonsDiv.innerHTML = `
+            <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
+            <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+        `;
+        
+        // Re-attach event listeners
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => this.hideDeleteConfirmation());
+        document.getElementById('confirmDeleteBtn').addEventListener('click', () => this.handleDeleteConfirm());
+    }
+    
+    /**
+     * Handle delete confirmation
+     */
+    async handleDeleteConfirm() {
+        if (!this.deleteCode) return;
+        
+        try {
+            const response = await fetch(`/delete-video/${this.deleteCode}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.showDeleteSuccess(`Successfully deleted MVI_${this.deleteCode}_proxy`);
+                
+                // Refresh the codes list
+                this.refreshAvailableCodes();
+            } else {
+                this.showError(data.error || 'Failed to delete video');
+            }
+        } catch (error) {
+            this.showError('Network error while deleting video');
+        }
     }
 }

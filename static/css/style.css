@@ -141,6 +141,7 @@ h1 {
     cursor: pointer;
     transition: all 0.2s ease;
     background-color: white;
+    position: relative;
 }
 
 .code-item:hover {
@@ -175,6 +176,71 @@ h1 {
 
 .code-status-icon {
     font-size: 18px;
+}
+
+.code-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.code-item:hover .code-delete-btn {
+    opacity: 1;
+}
+
+.code-delete-btn:hover {
+    background: #c82333;
+}
+
+.danger-btn {
+    background-color: #dc3545;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.danger-btn:hover {
+    background-color: #c82333;
+}
+
+.secondary-btn {
+    background-color: #6c757d;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.secondary-btn:hover {
+    background-color: #5a6268;
+}
+
+.primary-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.primary-btn:hover {
+    background-color: #0056b3;
 }
 
 .divider {

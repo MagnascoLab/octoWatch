@@ -250,6 +250,45 @@ def list_available_codes():
     
     return jsonify({'codes': codes_info})
 
+@app.route('/delete-video/<code>', methods=['DELETE'])
+def delete_video(code):
+    """Delete video and associated keyframes by code"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    # Define directories
+    videos_dir = Path('videos')
+    keyframes_dir = Path('videos_keyframes')
+    
+    # Check if video exists
+    video_path = videos_dir / f'MVI_{code}_proxy.mp4'
+    if not video_path.exists():
+        # Try uppercase extension
+        video_path = videos_dir / f'MVI_{code}_proxy.MP4'
+        if not video_path.exists():
+            return jsonify({'error': 'Video not found'}), 404
+    
+    # Check for keyframes file
+    keyframes_path = keyframes_dir / f'MVI_{code}_keyframes.json'
+    keyframes_existed = keyframes_path.exists()
+    
+    try:
+        # Delete video file
+        video_path.unlink()
+        
+        # Delete keyframes if exists
+        if keyframes_existed:
+            keyframes_path.unlink()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Deleted video MVI_{code}_proxy',
+            'keyframes_deleted': keyframes_existed
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete: {str(e)}'}), 500
+
 import os
 
 if __name__ == '__main__':

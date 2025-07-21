@@ -77,6 +77,19 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteConfirmModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;max-height: 200px;">
+                <h3>Confirm Delete</h3>
+                <p id="deleteConfirmMessage"></p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button id="cancelDeleteBtn" class="secondary-btn">Cancel</button>
+                    <button id="confirmDeleteBtn" class="danger-btn">Delete</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="top-bar">
                 <button id="loadNewBtn" class="load-new-btn">Load New Video</button>
             </div>
