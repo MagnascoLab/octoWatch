@@ -45,6 +45,7 @@ export class UIManager {
             // Visualization options
             showTank: document.getElementById('showTank'),
             enableInterpolation: document.getElementById('enableInterpolation'),
+            editBoundingBoxesBtn: document.getElementById('editBoundingBoxesBtn'),
             sideSelect: document.getElementById('sideSelect'),
             showTrajectory: document.getElementById('showTrajectory'),
             trajectoryAlphaContainer: document.getElementById('trajectoryAlphaContainer'),
@@ -79,6 +80,7 @@ export class UIManager {
             keyframeDeletionModal: document.getElementById('keyframeDeletionModal'),
             keyframeDeletionMessage: document.getElementById('keyframeDeletionMessage'),
             deletionSide: document.getElementById('deletionSide'),
+            deletionMethod: document.getElementById('deletionMethod'),
             deletionStartTime: document.getElementById('deletionStartTime'),
             deletionEndTime: document.getElementById('deletionEndTime'),
             deletionFrameCount: document.getElementById('deletionFrameCount'),
@@ -86,6 +88,7 @@ export class UIManager {
             confirmKeyframeDeletionBtn: document.getElementById('confirmKeyframeDeletionBtn'),
             deletionSideContainer: document.getElementById('deletionSideContainer'),
             deletionSideSelect: document.getElementById('deletionSideSelect'),
+            deletionMethodSelect: document.getElementById('deletionMethodSelect'),
             
             // Analysis controls
             activityMetric: document.getElementById('activityMetric'),
@@ -212,6 +215,11 @@ export class UIManager {
         // Delete keyframes button
         this.elements.deleteKeyframesBtn.addEventListener('click', () => {
             this.toggleDeletionMode();
+        });
+        
+        // Edit bounding boxes button
+        this.elements.editBoundingBoxesBtn.addEventListener('click', () => {
+            this.toggleBboxEditMode();
         });
         
         // Visualization options
@@ -882,6 +890,40 @@ export class UIManager {
     /**
      * Toggle deletion mode
      */
+    toggleBboxEditMode() {
+        this.state.bboxEditMode = !this.state.bboxEditMode;
+        
+        if (this.state.bboxEditMode) {
+            // Entering bbox edit mode
+            this.elements.editBoundingBoxesBtn.classList.add('active');
+            this.elements.editBoundingBoxesBtn.innerHTML = '✏️ Cancel Edit';
+            this.elements.editBoundingBoxesBtn.style.backgroundColor = '#6c757d';
+            
+            // Emit event to enable bbox interaction
+            this.eventBus.emit('ui:toggleBboxEdit');
+            
+            // Show edit mode notification
+            Swal.fire({
+                icon: 'info',
+                title: 'Bounding Box Edit Mode',
+                text: 'Click and drag bounding boxes to reposition them',
+                toast: true,
+                position: 'top',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true
+            });
+        } else {
+            // Exiting bbox edit mode
+            this.elements.editBoundingBoxesBtn.classList.remove('active');
+            this.elements.editBoundingBoxesBtn.innerHTML = 'Edit Bounding Boxes';
+            this.elements.editBoundingBoxesBtn.style.backgroundColor = '#4CAF50';
+            
+            // Emit event to disable bbox interaction
+            this.eventBus.emit('ui:toggleBboxEdit');
+        }
+    }
+    
     toggleDeletionMode() {
         this.state.deletionMode = !this.state.deletionMode;
         
@@ -984,15 +1026,20 @@ export class UIManager {
         const startTime = startFrame / fps;
         const endTime = endFrame / fps;
         
-        // Get selected side
+        // Get selected side and method
         const side = this.elements.deletionSideSelect.value;
         const sideText = side === 'both' ? 'Both Sides' : 
                         side === 'left' ? 'Left Side Only' : 'Right Side Only';
         
+        const method = this.elements.deletionMethodSelect.value;
+        const methodText = method === 'delete' ? 'Delete' : 'Infill (Interpolate)';
+        
         // Update modal with selection info
-        this.elements.keyframeDeletionMessage.textContent = 
-            `This will delete all keyframes between the selected time range.`;
+        this.elements.keyframeDeletionMessage.textContent = method === 'delete' ?
+            `This will delete all keyframes between the selected time range.` :
+            `This will replace keyframes in the selected range with interpolated values.`;
         this.elements.deletionSide.textContent = sideText;
+        this.elements.deletionMethod.textContent = methodText;
         this.elements.deletionStartTime.textContent = `${startTime.toFixed(2)}s (frame ${startFrame})`;
         this.elements.deletionEndTime.textContent = `${endTime.toFixed(2)}s (frame ${endFrame})`;
         this.elements.deletionFrameCount.textContent = `${endFrame - startFrame + 1}`;
@@ -1003,7 +1050,8 @@ export class UIManager {
             endTime,
             startFrame,
             endFrame,
-            side
+            side,
+            method
         };
         
         // Show confirmation modal
@@ -1048,25 +1096,39 @@ export class UIManager {
                     end_time: this.pendingDeletion.endTime,
                     start_frame: this.pendingDeletion.startFrame,
                     end_frame: this.pendingDeletion.endFrame,
-                    side: this.pendingDeletion.side
+                    side: this.pendingDeletion.side,
+                    method: this.pendingDeletion.method
                 })
             });
             
             const data = await response.json();
             
             if (response.ok) {
-                // Show detailed success message
-                const stats = data.keyframes_affected > 0 ? 
-                    `Deleted ${data.left_detections_deleted + data.right_detections_deleted} detections from ${data.keyframes_affected} keyframes` :
-                    'No keyframes were found in the selected range';
+                // Show detailed success message based on method
+                let stats, title;
+                
+                if (data.method === 'delete') {
+                    stats = data.keyframes_affected > 0 ? 
+                        `Deleted ${data.left_detections_deleted + data.right_detections_deleted} detections from ${data.keyframes_affected} keyframes` :
+                        'No keyframes were found in the selected range';
+                    title = 'Keyframes Deleted!';
+                } else {
+                    // Infill method
+                    const totalInfilled = data.left_keyframes_infilled + data.right_keyframes_infilled;
+                    stats = data.keyframes_affected > 0 ? 
+                        `Infilled ${totalInfilled} keyframes with interpolated detections` :
+                        'No keyframes were found in the selected range';
+                    title = 'Keyframes Infilled!';
+                }
                 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Keyframes Deleted!',
+                    title: title,
                     html: `
                         <div style="text-align: left;">
                             <p><strong>${stats}</strong></p>
                             <p style="font-size: 0.9em; color: #666;">
+                                Method: ${data.method === 'delete' ? 'Delete' : 'Infill (Interpolate)'}<br>
                                 Side: ${this.pendingDeletion.side === 'both' ? 'Both' : 
                                        this.pendingDeletion.side === 'left' ? 'Left Only' : 'Right Only'}<br>
                                 Time Range: ${this.pendingDeletion.startTime.toFixed(2)}s - ${this.pendingDeletion.endTime.toFixed(2)}s<br>

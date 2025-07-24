@@ -267,6 +267,7 @@ def delete_keyframes(code):
     start_frame = data.get('start_frame')
     end_frame = data.get('end_frame')
     side = data.get('side', 'both')  # Default to 'both' if not specified
+    method = data.get('method', 'delete')  # Default to 'delete' if not specified
     
     if start_time is None or end_time is None:
         return jsonify({'error': 'start_time and end_time are required'}), 400
@@ -288,32 +289,171 @@ def delete_keyframes(code):
     backup_path = keyframes_path.with_suffix(f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
     shutil.copy2(keyframes_path, backup_path)
     
-    # Count affected keyframes before deletion
+    # Count affected keyframes before processing
     affected_count = 0
     deleted_left = 0
     deleted_right = 0
+    infilled_left = 0
+    infilled_right = 0
     
-    # Process keyframes
-    if 'keyframes' in keyframes_data:
-        for frame_key, frame_data in keyframes_data['keyframes'].items():
-            timestamp = frame_data.get('timestamp', 0)
-            
-            # Check if timestamp is within range
-            if start_time <= timestamp <= end_time:
-                # Delete based on side selection
-                if side == 'both' or side == 'left':
-                    if frame_data.get('left_detections'):
-                        deleted_left += len(frame_data['left_detections'])
-                        frame_data['left_detections'] = []
-                        frame_data['has_left_octopus'] = False
-                        affected_count += 1
+    if method == 'delete':
+        # Original deletion logic
+        if 'keyframes' in keyframes_data:
+            for frame_key, frame_data in keyframes_data['keyframes'].items():
+                timestamp = frame_data.get('timestamp', 0)
                 
-                if side == 'both' or side == 'right':
-                    if frame_data.get('right_detections'):
-                        deleted_right += len(frame_data['right_detections'])
-                        frame_data['right_detections'] = []
-                        frame_data['has_right_octopus'] = False
-                        affected_count += 1
+                # Check if timestamp is within range
+                if start_time <= timestamp <= end_time:
+                    # Delete based on side selection
+                    if side == 'both' or side == 'left':
+                        if frame_data.get('left_detections'):
+                            deleted_left += len(frame_data['left_detections'])
+                            frame_data['left_detections'] = []
+                            frame_data['has_left_octopus'] = False
+                            affected_count += 1
+                    
+                    if side == 'both' or side == 'right':
+                        if frame_data.get('right_detections'):
+                            deleted_right += len(frame_data['right_detections'])
+                            frame_data['right_detections'] = []
+                            frame_data['has_right_octopus'] = False
+                            affected_count += 1
+    
+    elif method == 'infill':
+        # Infill interpolation logic
+        if 'keyframes' in keyframes_data:
+            # Helper function to find boundary keyframes with detections
+            def find_boundary_keyframes(side_key):
+                prev_frame = None
+                next_frame = None
+                prev_timestamp = None
+                next_timestamp = None
+                
+                # Sort keyframe keys by frame number
+                sorted_frames = sorted(keyframes_data['keyframes'].items(), 
+                                     key=lambda x: int(x[0]))
+                
+                # Find previous frame with detection
+                for frame_key, frame_data in sorted_frames:
+                    timestamp = frame_data.get('timestamp', 0)
+                    if timestamp < start_time and frame_data.get(f'{side_key}_detections'):
+                        prev_frame = frame_data
+                        prev_timestamp = timestamp
+                
+                # Find next frame with detection
+                for frame_key, frame_data in sorted_frames:
+                    timestamp = frame_data.get('timestamp', 0)
+                    if timestamp > end_time and frame_data.get(f'{side_key}_detections'):
+                        next_frame = frame_data
+                        next_timestamp = timestamp
+                        break
+                
+                return prev_frame, prev_timestamp, next_frame, next_timestamp
+            
+            # Helper function to compute union bbox if multiple detections
+            def compute_union_bbox(detections):
+                if not detections:
+                    return None
+                if len(detections) == 1:
+                    return detections[0]
+                
+                # Compute union of all bounding boxes
+                x_min = min(d['x_min'] for d in detections)
+                y_min = min(d['y_min'] for d in detections)
+                x_max = max(d['x_max'] for d in detections)
+                y_max = max(d['y_max'] for d in detections)
+                avg_confidence = sum(d['confidence'] for d in detections) / len(detections)
+                
+                return {
+                    'x_min': x_min,
+                    'y_min': y_min,
+                    'x_max': x_max,
+                    'y_max': y_max,
+                    'confidence': avg_confidence,
+                    'side': detections[0]['side']
+                }
+            
+            # Process left side if needed
+            if side == 'both' or side == 'left':
+                prev_frame, prev_ts, next_frame, next_ts = find_boundary_keyframes('left')
+                
+                if prev_frame or next_frame:
+                    # Get union bboxes for boundaries
+                    prev_bbox = compute_union_bbox(prev_frame['left_detections']) if prev_frame else None
+                    next_bbox = compute_union_bbox(next_frame['left_detections']) if next_frame else None
+                    
+                    # Process frames in range
+                    for frame_key, frame_data in keyframes_data['keyframes'].items():
+                        timestamp = frame_data.get('timestamp', 0)
+                        
+                        if start_time <= timestamp <= end_time:
+                            if prev_bbox and next_bbox:
+                                # Interpolate between prev and next
+                                weight = (timestamp - prev_ts) / (next_ts - prev_ts)
+                                interpolated = {
+                                    'x_min': prev_bbox['x_min'] + (next_bbox['x_min'] - prev_bbox['x_min']) * weight,
+                                    'y_min': prev_bbox['y_min'] + (next_bbox['y_min'] - prev_bbox['y_min']) * weight,
+                                    'x_max': prev_bbox['x_max'] + (next_bbox['x_max'] - prev_bbox['x_max']) * weight,
+                                    'y_max': prev_bbox['y_max'] + (next_bbox['y_max'] - prev_bbox['y_max']) * weight,
+                                    'confidence': prev_bbox['confidence'] + (next_bbox['confidence'] - prev_bbox['confidence']) * weight,
+                                    'side': 'left',
+                                    'interpolated': True
+                                }
+                                frame_data['left_detections'] = [interpolated]
+                                frame_data['has_left_octopus'] = True
+                                infilled_left += 1
+                            elif prev_bbox:
+                                # Only prev available, copy forward
+                                frame_data['left_detections'] = [{**prev_bbox, 'interpolated': True}]
+                                frame_data['has_left_octopus'] = True
+                                infilled_left += 1
+                            elif next_bbox:
+                                # Only next available, copy backward
+                                frame_data['left_detections'] = [{**next_bbox, 'interpolated': True}]
+                                frame_data['has_left_octopus'] = True
+                                infilled_left += 1
+                            affected_count += 1
+            
+            # Process right side if needed
+            if side == 'both' or side == 'right':
+                prev_frame, prev_ts, next_frame, next_ts = find_boundary_keyframes('right')
+                
+                if prev_frame or next_frame:
+                    # Get union bboxes for boundaries
+                    prev_bbox = compute_union_bbox(prev_frame['right_detections']) if prev_frame else None
+                    next_bbox = compute_union_bbox(next_frame['right_detections']) if next_frame else None
+                    
+                    # Process frames in range
+                    for frame_key, frame_data in keyframes_data['keyframes'].items():
+                        timestamp = frame_data.get('timestamp', 0)
+                        
+                        if start_time <= timestamp <= end_time:
+                            if prev_bbox and next_bbox:
+                                # Interpolate between prev and next
+                                weight = (timestamp - prev_ts) / (next_ts - prev_ts)
+                                interpolated = {
+                                    'x_min': prev_bbox['x_min'] + (next_bbox['x_min'] - prev_bbox['x_min']) * weight,
+                                    'y_min': prev_bbox['y_min'] + (next_bbox['y_min'] - prev_bbox['y_min']) * weight,
+                                    'x_max': prev_bbox['x_max'] + (next_bbox['x_max'] - prev_bbox['x_max']) * weight,
+                                    'y_max': prev_bbox['y_max'] + (next_bbox['y_max'] - prev_bbox['y_max']) * weight,
+                                    'confidence': prev_bbox['confidence'] + (next_bbox['confidence'] - prev_bbox['confidence']) * weight,
+                                    'side': 'right',
+                                    'interpolated': True
+                                }
+                                frame_data['right_detections'] = [interpolated]
+                                frame_data['has_right_octopus'] = True
+                                infilled_right += 1
+                            elif prev_bbox:
+                                # Only prev available, copy forward
+                                frame_data['right_detections'] = [{**prev_bbox, 'interpolated': True}]
+                                frame_data['has_right_octopus'] = True
+                                infilled_right += 1
+                            elif next_bbox:
+                                # Only next available, copy backward
+                                frame_data['right_detections'] = [{**next_bbox, 'interpolated': True}]
+                                frame_data['has_right_octopus'] = True
+                                infilled_right += 1
+                            affected_count += 1
     
     # Save updated keyframes
     try:
@@ -325,27 +465,44 @@ def delete_keyframes(code):
         return jsonify({'error': f'Failed to save keyframes: {str(e)}'}), 500
     
     # Print summary
-    print(f"=== KEYFRAME DELETION COMPLETED ===")
-    print(f"Video ID: MVI_{code}")
-    print(f"Side: {side.upper()}")
-    print(f"Time Range: {start_time}s - {end_time}s")
-    print(f"Frames Range: {start_frame} - {end_frame}")
-    print(f"Keyframes Affected: {affected_count}")
-    print(f"Left Detections Deleted: {deleted_left}")
-    print(f"Right Detections Deleted: {deleted_right}")
-    print(f"Backup Created: {backup_path.name}")
-    print(f"===================================")
+    if method == 'delete':
+        print(f"=== KEYFRAME DELETION COMPLETED ===")
+        print(f"Video ID: MVI_{code}")
+        print(f"Method: DELETE")
+        print(f"Side: {side.upper()}")
+        print(f"Time Range: {start_time}s - {end_time}s")
+        print(f"Frames Range: {start_frame} - {end_frame}")
+        print(f"Keyframes Affected: {affected_count}")
+        print(f"Left Detections Deleted: {deleted_left}")
+        print(f"Right Detections Deleted: {deleted_right}")
+        print(f"Backup Created: {backup_path.name}")
+        print(f"===================================")
+    else:
+        print(f"=== KEYFRAME INFILL COMPLETED ===")
+        print(f"Video ID: MVI_{code}")
+        print(f"Method: INFILL")
+        print(f"Side: {side.upper()}")
+        print(f"Time Range: {start_time}s - {end_time}s")
+        print(f"Frames Range: {start_frame} - {end_frame}")
+        print(f"Keyframes Affected: {affected_count}")
+        print(f"Left Keyframes Infilled: {infilled_left}")
+        print(f"Right Keyframes Infilled: {infilled_right}")
+        print(f"Backup Created: {backup_path.name}")
+        print(f"===================================")
     
     return jsonify({
         'success': True,
-        'message': 'Keyframes deleted successfully',
+        'message': 'Keyframes processed successfully',
         'video_id': f'MVI_{code}',
+        'method': method,
         'side': side,
         'start_time': start_time,
         'end_time': end_time,
         'keyframes_affected': affected_count,
         'left_detections_deleted': deleted_left,
         'right_detections_deleted': deleted_right,
+        'left_keyframes_infilled': infilled_left,
+        'right_keyframes_infilled': infilled_right,
         'backup_file': backup_path.name
     })
 

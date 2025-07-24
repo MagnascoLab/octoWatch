@@ -99,9 +99,10 @@
                 <p id="keyframeDeletionMessage"></p>
                 <div class="deletion-info">
                     <div>Side: <span id="deletionSide"></span></div>
+                    <div>Method: <span id="deletionMethod"></span></div>
                     <div>Start Time: <span id="deletionStartTime"></span></div>
                     <div>End Time: <span id="deletionEndTime"></span></div>
-                    <div>Frames to Delete: <span id="deletionFrameCount"></span></div>
+                    <div>Frames to Process: <span id="deletionFrameCount"></span></div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button id="cancelKeyframeDeletionBtn" class="secondary-btn">Cancel</button>
@@ -155,6 +156,9 @@
                         <input type="checkbox" id="enableInterpolation" checked>
                         Enable Interpolation
                     </label>
+                    <button id="editBoundingBoxesBtn" class="control-button" style="background-color: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;">
+                        Edit Bounding Boxes
+                    </button>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label>
                             <input type="checkbox" id="showTrajectory">
@@ -268,6 +272,11 @@
                                 <option value="both">Both Sides</option>
                                 <option value="left">Left Side Only</option>
                                 <option value="right">Right Side Only</option>
+                            </select>
+                            <label style="margin-left: 20px; margin-right: 10px;">Method:</label>
+                            <select id="deletionMethodSelect">
+                                <option value="delete">Delete</option>
+                                <option value="infill">Infill (Interpolate)</option>
                             </select>
                         </div>
                     </div>

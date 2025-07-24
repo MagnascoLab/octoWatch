@@ -21,7 +21,7 @@ class DetectionManager:
         default_params = {
             'hertz': 2,
             'confidence': 0.75,
-            'duration': 3600,
+            'duration': 3600 * 10, # Max duration of 10 hours
             'batch_size': 4
         }
         # Merge user params with defaults

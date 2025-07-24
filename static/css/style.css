@@ -472,12 +472,17 @@ button:disabled {
     border: 1px solid #ffeaa7;
 }
 
-#deletionSideSelect {
+#deletionSideSelect, #deletionMethodSelect {
     padding: 4px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: white;
     cursor: pointer;
+    margin-right: 10px;
+}
+
+#deletionMethodSelect {
+    font-weight: bold;
 }
 
 /* Export button styles */

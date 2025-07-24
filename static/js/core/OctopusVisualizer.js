@@ -21,6 +21,7 @@ import { computeUnionBbox } from '../utils/MathUtils.js';
 import { DetectionManager } from '../detection/DetectionManager.js';
 import { ScreenshotCapture } from '../utils/ScreenshotCapture.js';
 import { DataExporter } from '../utils/DataExporter.js';
+import { BoundingBoxInteraction } from '../interaction/BoundingBoxInteraction.js';
 
 export class OctopusVisualizer {
     /**
@@ -92,6 +93,9 @@ export class OctopusVisualizer {
             
             // Data exporter
             this.dataExporter = new DataExporter();
+            
+            // Bounding box interaction
+            this.bboxInteraction = new BoundingBoxInteraction(this.canvas, this.videoPlayer, this.eventBus);
             
         } catch (error) {
             this.errorHandler.handleError(error, 'OctopusVisualizer', 'critical');
@@ -232,6 +236,29 @@ export class OctopusVisualizer {
         
         this.eventBus.on(Events.EXPORT_ALL_JSON, () => {
             this.exportAllData();
+        });
+        
+        // Bounding box editing events
+        this.eventBus.on('ui:toggleBboxEdit', () => {
+            this.toggleBboxEditMode();
+        });
+        
+        this.eventBus.on('bboxDragged', (data) => {
+            this.handleBboxDrag(data);
+        });
+        
+        this.eventBus.on('bboxResizing', (data) => {
+            this.handleBboxResize(data);
+        });
+        
+        this.eventBus.on('bboxSelected', (data) => {
+            this.selectedBox = data;
+            this.render();
+        });
+        
+        this.eventBus.on('bboxDeselected', () => {
+            this.selectedBox = null;
+            this.render();
         });
         
         // Window resize
@@ -381,6 +408,7 @@ export class OctopusVisualizer {
                 // Only re-render if frame changed
                 if (newFrame !== this.currentFrame) {
                     this.currentFrame = newFrame;
+                    this.draggedBboxes = {}; // Clear dragged bboxes when frame changes
                     this.render();
                     this.heatmapRenderer.setCurrentFrame(newFrame);
                     this.heatmapRenderer.render();
@@ -428,15 +456,52 @@ export class OctopusVisualizer {
             this.performanceMonitor.incrementDrawCalls();
         }
         
+        // Collect current bounding boxes for interaction
+        const currentBboxes = { left: [], right: [] };
+        
         // Draw octopus bounding boxes
         if (uiState.sideSelect === 'left' || uiState.sideSelect === 'both') {
-            this.drawOctopusBbox('left', uiState.enableInterpolation, scaleX, scaleY);
+            let leftBbox = this.getOctopusBbox('left', uiState.enableInterpolation);
+            
+            // Use dragged bbox if available
+            if (this.draggedBboxes && this.draggedBboxes.left) {
+                leftBbox = this.draggedBboxes.left.bbox;
+            }
+            
+            if (leftBbox) {
+                currentBboxes.left.push(leftBbox);
+                this.drawBboxFromData(leftBbox, 'left', scaleX, scaleY);
+            }
             this.performanceMonitor.incrementDrawCalls();
         }
         
         if (uiState.sideSelect === 'right' || uiState.sideSelect === 'both') {
-            this.drawOctopusBbox('right', uiState.enableInterpolation, scaleX, scaleY);
+            let rightBbox = this.getOctopusBbox('right', uiState.enableInterpolation);
+            
+            // Use dragged bbox if available
+            if (this.draggedBboxes && this.draggedBboxes.right) {
+                rightBbox = this.draggedBboxes.right.bbox;
+            }
+            
+            if (rightBbox) {
+                currentBboxes.right.push(rightBbox);
+                this.drawBboxFromData(rightBbox, 'right', scaleX, scaleY);
+            }
             this.performanceMonitor.incrementDrawCalls();
+        }
+        
+        // Update bounding box interaction module with current boxes (including dragged ones)
+        this.eventBus.emit('boundingBoxesUpdated', currentBboxes);
+        
+        // Draw resize handles if a box is selected and we're in edit mode
+        if (this.selectedBox && this.bboxInteraction.isEnabled) {
+            const selectedBbox = this.selectedBox.side === 'left' ? 
+                (this.draggedBboxes && this.draggedBboxes.left ? this.draggedBboxes.left.bbox : leftBbox) :
+                (this.draggedBboxes && this.draggedBboxes.right ? this.draggedBboxes.right.bbox : rightBbox);
+            
+            if (selectedBbox) {
+                this.drawResizeHandles(selectedBbox, scaleX, scaleY);
+            }
         }
         
         // Draw trajectories if enabled
@@ -478,13 +543,10 @@ export class OctopusVisualizer {
     }
 
     /**
-     * Draw octopus bounding box
+     * Get octopus bounding box for a side
      */
-    drawOctopusBbox(side, enableInterpolation, scaleX, scaleY) {
-        const color = side === 'left' ? [1, 0, 0, 1] : [0, 0, 1, 1]; // Red for left, Blue for right
+    getOctopusBbox(side, enableInterpolation) {
         const keyframe = this.keyframesData.keyframes[this.currentFrame.toString()];
-        
-        let bbox = null;
         
         // Check if this is a keyframe AND it has detections
         const isKeyframeWithDetections = keyframe && keyframe[`${side}_detections`].length > 0;
@@ -492,24 +554,82 @@ export class OctopusVisualizer {
         if (isKeyframeWithDetections) {
             // Compute union bbox for keyframe
             const detections = keyframe[`${side}_detections`];
-            bbox = computeUnionBbox(detections);
+            return computeUnionBbox(detections);
         } else if (enableInterpolation) {
             // Get interpolated bbox
-            bbox = this.interpolationEngine.getBboxAtFrame(this.currentFrame, side);
+            return this.interpolationEngine.getBboxAtFrame(this.currentFrame, side);
         }
         
-        if (bbox) {
-            const videoWidth = this.keyframesData.video_info.width;
-            const videoHeight = this.keyframesData.video_info.height;
-            
-            this.webglRenderer.drawRectangle(
-                bbox.x_min * videoWidth * scaleX,
-                bbox.y_min * videoHeight * scaleY,
-                (bbox.x_max - bbox.x_min) * videoWidth * scaleX,
-                (bbox.y_max - bbox.y_min) * videoHeight * scaleY,
-                color
+        return null;
+    }
+    
+    /**
+     * Draw bounding box from data
+     */
+    drawBboxFromData(bbox, side, scaleX, scaleY) {
+        const color = side === 'left' ? [1, 0, 0, 1] : [0, 0, 1, 1]; // Red for left, Blue for right
+        const videoWidth = this.keyframesData.video_info.width;
+        const videoHeight = this.keyframesData.video_info.height;
+        
+        this.webglRenderer.drawRectangle(
+            bbox.x_min * videoWidth * scaleX,
+            bbox.y_min * videoHeight * scaleY,
+            (bbox.x_max - bbox.x_min) * videoWidth * scaleX,
+            (bbox.y_max - bbox.y_min) * videoHeight * scaleY,
+            color
+        );
+    }
+    
+    /**
+     * Draw resize handles for selected box
+     */
+    drawResizeHandles(bbox, scaleX, scaleY) {
+        const videoWidth = this.keyframesData.video_info.width;
+        const videoHeight = this.keyframesData.video_info.height;
+        const handleSize = 6; // Size of handles in pixels
+        const handleColor = [1, 1, 1, 1]; // White handles
+        const handleBorderColor = [0, 0, 0, 1]; // Black border
+        
+        // Convert normalized bbox coords to canvas coords
+        const x1 = bbox.x_min * videoWidth * scaleX;
+        const y1 = bbox.y_min * videoHeight * scaleY;
+        const x2 = bbox.x_max * videoWidth * scaleX;
+        const y2 = bbox.y_max * videoHeight * scaleY;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        
+        // Define handle positions
+        const handles = [
+            { x: x1, y: y1 }, // nw
+            { x: midX, y: y1 }, // n
+            { x: x2, y: y1 }, // ne
+            { x: x2, y: midY }, // e
+            { x: x2, y: y2 }, // se
+            { x: midX, y: y2 }, // s
+            { x: x1, y: y2 }, // sw
+            { x: x1, y: midY } // w
+        ];
+        
+        // Draw each handle
+        handles.forEach(handle => {
+            // Draw handle as a small square with border
+            // Use drawCircle as a workaround for filled square
+            this.webglRenderer.drawCircle(
+                handle.x,
+                handle.y,
+                handleSize/2,
+                handleColor
             );
-        }
+            
+            // Draw border using rectangle outline
+            this.webglRenderer.drawRectangle(
+                handle.x - handleSize/2,
+                handle.y - handleSize/2,
+                handleSize,
+                handleSize,
+                handleBorderColor
+            );
+        });
     }
 
     /**
@@ -792,5 +912,59 @@ export class OctopusVisualizer {
         
         const side = this.uiManager.getState().sideSelect;
         this.dataExporter.exportAllJSON(allData, side);
+    }
+    
+    /**
+     * Toggle bounding box edit mode
+     */
+    toggleBboxEditMode() {
+        if (this.bboxInteraction.isEnabled) {
+            this.bboxInteraction.disable();
+            this.draggedBboxes = {}; // Clear any dragged bboxes
+            // Resume video when exiting edit mode (if it was playing before)
+            if (!this.videoPlayer.paused) {
+                this.videoPlayer.play();
+            }
+        } else {
+            // Pause video when entering edit mode
+            this.videoPlayer.pause();
+            this.bboxInteraction.enable();
+        }
+    }
+    
+    /**
+     * Handle bounding box drag event
+     */
+    handleBboxDrag(data) {
+        // Store the dragged bbox temporarily for rendering
+        if (!this.draggedBboxes) {
+            this.draggedBboxes = {};
+        }
+        
+        this.draggedBboxes[data.side] = {
+            index: data.index,
+            bbox: data.newBox
+        };
+        
+        // Re-render to show the dragged position
+        this.render();
+    }
+    
+    /**
+     * Handle bounding box resize event
+     */
+    handleBboxResize(data) {
+        // Use the same draggedBboxes storage for resize
+        if (!this.draggedBboxes) {
+            this.draggedBboxes = {};
+        }
+        
+        this.draggedBboxes[data.side] = {
+            index: data.index,
+            bbox: data.newBox
+        };
+        
+        // Re-render to show the resized position
+        this.render();
     }
 }
