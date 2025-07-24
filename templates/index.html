@@ -94,7 +94,7 @@
         
         <!-- Keyframe Deletion Confirmation Modal -->
         <div id="keyframeDeletionModal" class="modal" style="display: none;">
-            <div class="modal-content" style="max-width: 500px;max-height: 250px;">
+            <div class="modal-content" style="max-width: 500px;max-height: 300px;">
                 <h3>Confirm Keyframe Deletion</h3>
                 <p id="keyframeDeletionMessage"></p>
                 <div class="deletion-info">
@@ -159,6 +159,17 @@
                     <button id="editBoundingBoxesBtn" class="control-button" style="background-color: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;">
                         Edit Bounding Boxes
                     </button>
+                    <div id="boxToggleContainer" style="display: none; margin-left: 10px; gap: 5px; align-items: center;">
+                        <button id="leftBoxToggle" class="box-toggle-button" data-side="left" style="padding: 8px 12px; border-radius: 4px; border: 2px solid #dc3545; background-color: white; color: #dc3545; font-weight: bold;">
+                            L
+                        </button>
+                        <button id="rightBoxToggle" class="box-toggle-button" data-side="right" style="padding: 8px 12px; border-radius: 4px; border: 2px solid #007bff; background-color: white; color: #007bff; font-weight: bold;">
+                            R
+                        </button>
+                        <button id="submitBboxChangesBtn" class="control-button" style="display: none; background-color: #28a745; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;">
+                            Submit Changes
+                        </button>
+                    </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <label>
                             <input type="checkbox" id="showTrajectory">

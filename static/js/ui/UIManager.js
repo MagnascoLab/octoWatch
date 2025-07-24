@@ -46,6 +46,10 @@ export class UIManager {
             showTank: document.getElementById('showTank'),
             enableInterpolation: document.getElementById('enableInterpolation'),
             editBoundingBoxesBtn: document.getElementById('editBoundingBoxesBtn'),
+            boxToggleContainer: document.getElementById('boxToggleContainer'),
+            leftBoxToggle: document.getElementById('leftBoxToggle'),
+            rightBoxToggle: document.getElementById('rightBoxToggle'),
+            submitBboxChangesBtn: document.getElementById('submitBboxChangesBtn'),
             sideSelect: document.getElementById('sideSelect'),
             showTrajectory: document.getElementById('showTrajectory'),
             trajectoryAlphaContainer: document.getElementById('trajectoryAlphaContainer'),
@@ -220,6 +224,20 @@ export class UIManager {
         // Edit bounding boxes button
         this.elements.editBoundingBoxesBtn.addEventListener('click', () => {
             this.toggleBboxEditMode();
+        });
+        
+        // Box toggle buttons
+        this.elements.leftBoxToggle.addEventListener('click', () => {
+            this.eventBus.emit('ui:toggleBoxVisibility', { side: 'left' });
+        });
+        
+        this.elements.rightBoxToggle.addEventListener('click', () => {
+            this.eventBus.emit('ui:toggleBoxVisibility', { side: 'right' });
+        });
+        
+        // Submit bbox changes button
+        this.elements.submitBboxChangesBtn.addEventListener('click', () => {
+            this.eventBus.emit('ui:submitBboxChanges');
         });
         
         // Visualization options
@@ -899,6 +917,9 @@ export class UIManager {
             this.elements.editBoundingBoxesBtn.innerHTML = '✏️ Cancel Edit';
             this.elements.editBoundingBoxesBtn.style.backgroundColor = '#6c757d';
             
+            // Show box toggle buttons
+            this.elements.boxToggleContainer.style.display = 'inline-flex';
+            
             // Emit event to enable bbox interaction
             this.eventBus.emit('ui:toggleBboxEdit');
             
@@ -906,7 +927,7 @@ export class UIManager {
             Swal.fire({
                 icon: 'info',
                 title: 'Bounding Box Edit Mode',
-                text: 'Click and drag bounding boxes to reposition them',
+                text: 'Click and drag to move/resize boxes. Use L/R buttons to add/remove boxes.',
                 toast: true,
                 position: 'top',
                 showConfirmButton: false,
@@ -918,6 +939,9 @@ export class UIManager {
             this.elements.editBoundingBoxesBtn.classList.remove('active');
             this.elements.editBoundingBoxesBtn.innerHTML = 'Edit Bounding Boxes';
             this.elements.editBoundingBoxesBtn.style.backgroundColor = '#4CAF50';
+            
+            // Hide box toggle buttons
+            this.elements.boxToggleContainer.style.display = 'none';
             
             // Emit event to disable bbox interaction
             this.eventBus.emit('ui:toggleBboxEdit');

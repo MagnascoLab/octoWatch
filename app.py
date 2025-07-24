@@ -250,6 +250,79 @@ def list_available_codes():
     
     return jsonify({'codes': codes_info})
 
+@app.route('/update-keyframe/<code>', methods=['POST'])
+def update_keyframe(code):
+    """Update keyframe with client-side bounding box edits"""
+    
+    # Get request data
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # Extract fields
+    frame = data.get('frame')
+    timestamp = data.get('timestamp')
+    modifications = data.get('modifications', {})
+    
+    # Print to console for now
+    print(f"\n=== Received Bounding Box Edit ===")
+    print(f"Video Code: {code}")
+    print(f"Frame: {frame}")
+    print(f"Timestamp: {timestamp:.3f}s")
+    print(f"Modifications:")
+    
+    if 'left' in modifications:
+        left_mod = modifications['left']
+        edit_type = left_mod.get('editType', 'unknown')
+        bbox = left_mod.get('bbox')
+        had_original = left_mod.get('hadOriginal', False)
+        
+        print(f"\n  Left Side:")
+        print(f"    Edit Type: {edit_type.upper()}")
+        print(f"    Had Original Box: {had_original}")
+        
+        if edit_type == 'deletion':
+            print(f"    Action: Deleted existing box")
+        elif edit_type == 'addition':
+            print(f"    Action: Created new box")
+            if bbox:
+                print(f"    New box coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+        elif edit_type == 'modification':
+            print(f"    Action: Modified existing box")
+            if bbox:
+                print(f"    Updated coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+    
+    if 'right' in modifications:
+        right_mod = modifications['right']
+        edit_type = right_mod.get('editType', 'unknown')
+        bbox = right_mod.get('bbox')
+        had_original = right_mod.get('hadOriginal', False)
+        
+        print(f"\n  Right Side:")
+        print(f"    Edit Type: {edit_type.upper()}")
+        print(f"    Had Original Box: {had_original}")
+        
+        if edit_type == 'deletion':
+            print(f"    Action: Deleted existing box")
+        elif edit_type == 'addition':
+            print(f"    Action: Created new box")
+            if bbox:
+                print(f"    New box coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+        elif edit_type == 'modification':
+            print(f"    Action: Modified existing box")
+            if bbox:
+                print(f"    Updated coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+    
+    print("\n=================================\n")
+    
+    # Return success response
+    return jsonify({
+        'success': True,
+        'message': 'Edits received successfully',
+        'frame': frame,
+        'code': code
+    })
+
 @app.route('/delete-keyframes/<code>', methods=['POST'])
 def delete_keyframes(code):
     """Delete keyframes within a specified time range"""
