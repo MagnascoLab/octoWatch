@@ -9,6 +9,33 @@ import subprocess
 import sys
 from detection_manager import detection_manager
 import re
+
+def calculate_iou(box1, box2):
+    """Calculate Intersection over Union between two bounding boxes"""
+    if not box1 or not box2:
+        return 0.0
+    
+    # Calculate intersection
+    x_min = max(box1['x_min'], box2['x_min'])
+    y_min = max(box1['y_min'], box2['y_min'])
+    x_max = min(box1['x_max'], box2['x_max'])
+    y_max = min(box1['y_max'], box2['y_max'])
+    
+    if x_max < x_min or y_max < y_min:
+        return 0.0
+    
+    intersection_area = (x_max - x_min) * (y_max - y_min)
+    
+    # Calculate union
+    box1_area = (box1['x_max'] - box1['x_min']) * (box1['y_max'] - box1['y_min'])
+    box2_area = (box2['x_max'] - box2['x_min']) * (box2['y_max'] - box2['y_min'])
+    union_area = box1_area + box2_area - intersection_area
+    
+    if union_area == 0:
+        return 0.0
+    
+    return intersection_area / union_area
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024 * 1024  # 8GB max file size
@@ -264,7 +291,378 @@ def update_keyframe(code):
     timestamp = data.get('timestamp')
     modifications = data.get('modifications', {})
     
-    # Print to console for now
+    # Check if any side has a deletion or modification
+    has_deletion = False
+    has_modification = False
+    deletion_sides = []
+    modification_sides = []
+    modification_boxes = {}
+    
+    if 'left' in modifications:
+        if modifications['left'].get('editType') == 'deletion':
+            has_deletion = True
+            deletion_sides.append('left')
+        elif modifications['left'].get('editType') == 'modification':
+            has_modification = True
+            modification_sides.append('left')
+            modification_boxes['left'] = modifications['left'].get('bbox')
+    
+    if 'right' in modifications:
+        if modifications['right'].get('editType') == 'deletion':
+            has_deletion = True
+            deletion_sides.append('right')
+        elif modifications['right'].get('editType') == 'modification':
+            has_modification = True
+            modification_sides.append('right')
+            modification_boxes['right'] = modifications['right'].get('bbox')
+    
+    # If we have deletions, use IoU-based deletion logic
+    if has_deletion:
+        # Determine which side to delete
+        if len(deletion_sides) == 2:
+            side = 'both'
+        else:
+            side = deletion_sides[0]
+        
+        # Load keyframes file
+        keyframes_path = Path('videos_keyframes') / f'MVI_{code}_keyframes.json'
+        if not keyframes_path.exists():
+            return jsonify({'error': 'Keyframes file not found'}), 404
+        
+        try:
+            with open(keyframes_path, 'r') as f:
+                keyframes_data = json.load(f)
+        except Exception as e:
+            return jsonify({'error': f'Failed to load keyframes: {str(e)}'}), 500
+        
+        # Find nearest keyframe to timestamp
+        nearest_frame = None
+        nearest_frame_key = None
+        min_time_diff = float('inf')
+        
+        for frame_key, frame_data in keyframes_data['keyframes'].items():
+            frame_timestamp = frame_data.get('timestamp', 0)
+            time_diff = abs(frame_timestamp - timestamp)
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                nearest_frame = frame_data
+                nearest_frame_key = frame_key
+        
+        if not nearest_frame:
+            return jsonify({'error': 'No keyframes found'}), 404
+        
+        # Get reference bounding box for the side we're deleting
+        reference_boxes = {}
+        if side in ['both', 'left'] and nearest_frame.get('left_detections'):
+            reference_boxes['left'] = nearest_frame['left_detections'][0]  # Use first detection
+        if side in ['both', 'right'] and nearest_frame.get('right_detections'):
+            reference_boxes['right'] = nearest_frame['right_detections'][0]  # Use first detection
+        
+        if not reference_boxes:
+            return jsonify({'error': f'No detection found at timestamp {timestamp:.3f}s for side: {side}'}), 404
+        
+        # Sort keyframes by frame number for scanning
+        sorted_frames = sorted(keyframes_data['keyframes'].items(), key=lambda x: int(x[0]))
+        nearest_index = next(i for i, (k, v) in enumerate(sorted_frames) if k == nearest_frame_key)
+        
+        # Scan backward to find interval start
+        interval_start_index = nearest_index
+        for i in range(nearest_index - 1, -1, -1):
+            frame_key, frame_data = sorted_frames[i]
+            should_stop = False
+            
+            # Check each side we're processing
+            for s in ['left', 'right']:
+                if s in reference_boxes:
+                    detections = frame_data.get(f'{s}_detections', [])
+                    if not detections:
+                        should_stop = True
+                        break
+                    
+                    # Calculate IoU with reference box
+                    current_box = detections[0]  # Use first detection
+                    iou = calculate_iou(reference_boxes[s], current_box)
+                    if iou < 0.8:
+                        should_stop = True
+                        break
+            
+            if should_stop:
+                break
+            interval_start_index = i
+        
+        # Scan forward to find interval end
+        interval_end_index = nearest_index
+        for i in range(nearest_index + 1, len(sorted_frames)):
+            frame_key, frame_data = sorted_frames[i]
+            should_stop = False
+            
+            # Check each side we're processing
+            for s in ['left', 'right']:
+                if s in reference_boxes:
+                    detections = frame_data.get(f'{s}_detections', [])
+                    if not detections:
+                        should_stop = True
+                        break
+                    
+                    # Calculate IoU with reference box
+                    current_box = detections[0]  # Use first detection
+                    iou = calculate_iou(reference_boxes[s], current_box)
+                    if iou < 0.8:
+                        should_stop = True
+                        break
+            
+            if should_stop:
+                break
+            interval_end_index = i
+        
+        # Create backup before deletion
+        import shutil
+        from datetime import datetime
+        backup_path = keyframes_path.with_suffix(f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+        shutil.copy2(keyframes_path, backup_path)
+        
+        # Delete detections within the interval
+        deleted_count = {'left': 0, 'right': 0}
+        affected_frames = []
+        
+        for i in range(interval_start_index, interval_end_index + 1):
+            frame_key, frame_data = sorted_frames[i]
+            affected_frames.append(int(frame_key))
+            
+            if side in ['both', 'left'] and frame_data.get('left_detections'):
+                deleted_count['left'] += len(frame_data['left_detections'])
+                frame_data['left_detections'] = []
+                frame_data['has_left_octopus'] = False
+            
+            if side in ['both', 'right'] and frame_data.get('right_detections'):
+                deleted_count['right'] += len(frame_data['right_detections'])
+                frame_data['right_detections'] = []
+                frame_data['has_right_octopus'] = False
+        
+        # Save updated keyframes
+        try:
+            with open(keyframes_path, 'w') as f:
+                json.dump(keyframes_data, f, indent=2)
+        except Exception as e:
+            # Restore from backup if save fails
+            shutil.move(backup_path, keyframes_path)
+            return jsonify({'error': f'Failed to save keyframes: {str(e)}'}), 500
+        
+        # Get time range of deletion
+        start_time = sorted_frames[interval_start_index][1]['timestamp']
+        end_time = sorted_frames[interval_end_index][1]['timestamp']
+        
+        # Print summary
+        print(f"\n=== IoU-BASED KEYFRAME DELETION ===")
+        print(f"Video ID: MVI_{code}")
+        print(f"Clicked Timestamp: {timestamp:.3f}s")
+        print(f"Nearest Frame: {nearest_frame_key}")
+        print(f"Side: {side.upper()}")
+        print(f"IoU Threshold: 0.95")
+        print(f"Deletion Interval: {start_time:.3f}s - {end_time:.3f}s")
+        print(f"Frames Affected: {len(affected_frames)} (frames {min(affected_frames)} - {max(affected_frames)})")
+        print(f"Left Detections Deleted: {deleted_count['left']}")
+        print(f"Right Detections Deleted: {deleted_count['right']}")
+        print(f"Backup Created: {backup_path.name}")
+        print(f"===================================\n")
+        
+        # Return success response
+        return jsonify({
+            'success': True,
+            'message': 'IoU-based deletion completed',
+            'timestamp': timestamp,
+            'interval': {
+                'start_time': start_time,
+                'end_time': end_time,
+                'start_frame': min(affected_frames),
+                'end_frame': max(affected_frames)
+            },
+            'frames_affected': len(affected_frames),
+            'detections_deleted': deleted_count,
+            'backup_file': backup_path.name
+        })
+    
+    # If we have modifications, use IoU-based modification logic
+    elif has_modification:
+        # Determine which side to modify
+        if len(modification_sides) == 2:
+            side = 'both'
+        else:
+            side = modification_sides[0]
+        
+        # Load keyframes file
+        keyframes_path = Path('videos_keyframes') / f'MVI_{code}_keyframes.json'
+        if not keyframes_path.exists():
+            return jsonify({'error': 'Keyframes file not found'}), 404
+        
+        try:
+            with open(keyframes_path, 'r') as f:
+                keyframes_data = json.load(f)
+        except Exception as e:
+            return jsonify({'error': f'Failed to load keyframes: {str(e)}'}), 500
+        
+        # Find nearest keyframe to timestamp
+        nearest_frame = None
+        nearest_frame_key = None
+        min_time_diff = float('inf')
+        
+        for frame_key, frame_data in keyframes_data['keyframes'].items():
+            frame_timestamp = frame_data.get('timestamp', 0)
+            time_diff = abs(frame_timestamp - timestamp)
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                nearest_frame = frame_data
+                nearest_frame_key = frame_key
+        
+        if not nearest_frame:
+            return jsonify({'error': 'No keyframes found'}), 404
+        
+        # Get reference bounding box for the side we're modifying
+        reference_boxes = {}
+        if side in ['both', 'left'] and nearest_frame.get('left_detections'):
+            reference_boxes['left'] = nearest_frame['left_detections'][0]  # Use first detection
+        if side in ['both', 'right'] and nearest_frame.get('right_detections'):
+            reference_boxes['right'] = nearest_frame['right_detections'][0]  # Use first detection
+        
+        if not reference_boxes:
+            return jsonify({'error': f'No detection found at timestamp {timestamp:.3f}s for side: {side}'}), 404
+        
+        # Sort keyframes by frame number for scanning
+        sorted_frames = sorted(keyframes_data['keyframes'].items(), key=lambda x: int(x[0]))
+        nearest_index = next(i for i, (k, v) in enumerate(sorted_frames) if k == nearest_frame_key)
+        
+        # Scan backward to find interval start
+        interval_start_index = nearest_index
+        for i in range(nearest_index - 1, -1, -1):
+            frame_key, frame_data = sorted_frames[i]
+            should_stop = False
+            
+            # Check each side we're processing
+            for s in ['left', 'right']:
+                if s in reference_boxes:
+                    detections = frame_data.get(f'{s}_detections', [])
+                    if not detections:
+                        should_stop = True
+                        break
+                    
+                    # Calculate IoU with reference box
+                    current_box = detections[0]  # Use first detection
+                    iou = calculate_iou(reference_boxes[s], current_box)
+                    if iou < 0.8:
+                        should_stop = True
+                        break
+            
+            if should_stop:
+                break
+            interval_start_index = i
+        
+        # Scan forward to find interval end
+        interval_end_index = nearest_index
+        for i in range(nearest_index + 1, len(sorted_frames)):
+            frame_key, frame_data = sorted_frames[i]
+            should_stop = False
+            
+            # Check each side we're processing
+            for s in ['left', 'right']:
+                if s in reference_boxes:
+                    detections = frame_data.get(f'{s}_detections', [])
+                    if not detections:
+                        should_stop = True
+                        break
+                    
+                    # Calculate IoU with reference box
+                    current_box = detections[0]  # Use first detection
+                    iou = calculate_iou(reference_boxes[s], current_box)
+                    if iou < 0.8:
+                        should_stop = True
+                        break
+            
+            if should_stop:
+                break
+            interval_end_index = i
+        
+        # Create backup before modification
+        import shutil
+        from datetime import datetime
+        backup_path = keyframes_path.with_suffix(f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+        shutil.copy2(keyframes_path, backup_path)
+        
+        # Replace detections within the interval
+        modified_count = {'left': 0, 'right': 0}
+        affected_frames = []
+        
+        for i in range(interval_start_index, interval_end_index + 1):
+            frame_key, frame_data = sorted_frames[i]
+            affected_frames.append(int(frame_key))
+            
+            if side in ['both', 'left'] and frame_data.get('left_detections') and 'left' in modification_boxes:
+                # Replace with modified box
+                frame_data['left_detections'] = [{
+                    **modification_boxes['left'],
+                    'side': 'left',
+                    'confidence': 1.0  # Set high confidence for user-modified boxes
+                }]
+                modified_count['left'] += 1
+            
+            if side in ['both', 'right'] and frame_data.get('right_detections') and 'right' in modification_boxes:
+                # Replace with modified box
+                frame_data['right_detections'] = [{
+                    **modification_boxes['right'],
+                    'side': 'right',
+                    'confidence': 1.0  # Set high confidence for user-modified boxes
+                }]
+                modified_count['right'] += 1
+        
+        # Save updated keyframes
+        try:
+            with open(keyframes_path, 'w') as f:
+                json.dump(keyframes_data, f, indent=2)
+        except Exception as e:
+            # Restore from backup if save fails
+            shutil.move(backup_path, keyframes_path)
+            return jsonify({'error': f'Failed to save keyframes: {str(e)}'}), 500
+        
+        # Get time range of modification
+        start_time = sorted_frames[interval_start_index][1]['timestamp']
+        end_time = sorted_frames[interval_end_index][1]['timestamp']
+        
+        # Print summary
+        print(f"\n=== IoU-BASED KEYFRAME MODIFICATION ===")
+        print(f"Video ID: MVI_{code}")
+        print(f"Clicked Timestamp: {timestamp:.3f}s")
+        print(f"Nearest Frame: {nearest_frame_key}")
+        print(f"Side: {side.upper()}")
+        print(f"IoU Threshold: 0.8")
+        print(f"Modification Interval: {start_time:.3f}s - {end_time:.3f}s")
+        print(f"Frames Affected: {len(affected_frames)} (frames {min(affected_frames)} - {max(affected_frames)})")
+        print(f"Left Detections Modified: {modified_count['left']}")
+        print(f"Right Detections Modified: {modified_count['right']}")
+        if 'left' in modification_boxes and modification_boxes['left']:
+            bbox = modification_boxes['left']
+            print(f"Left Box: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+        if 'right' in modification_boxes and modification_boxes['right']:
+            bbox = modification_boxes['right']
+            print(f"Right Box: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
+        print(f"Backup Created: {backup_path.name}")
+        print(f"=====================================\n")
+        
+        # Return success response
+        return jsonify({
+            'success': True,
+            'message': 'IoU-based modification completed',
+            'timestamp': timestamp,
+            'interval': {
+                'start_time': start_time,
+                'end_time': end_time,
+                'start_frame': min(affected_frames),
+                'end_frame': max(affected_frames)
+            },
+            'frames_affected': len(affected_frames),
+            'detections_modified': modified_count,
+            'backup_file': backup_path.name
+        })
+    
+    # Otherwise, handle non-deletion/non-modification edits (additions)
     print(f"\n=== Received Bounding Box Edit ===")
     print(f"Video Code: {code}")
     print(f"Frame: {frame}")
@@ -281,9 +679,7 @@ def update_keyframe(code):
         print(f"    Edit Type: {edit_type.upper()}")
         print(f"    Had Original Box: {had_original}")
         
-        if edit_type == 'deletion':
-            print(f"    Action: Deleted existing box")
-        elif edit_type == 'addition':
+        if edit_type == 'addition':
             print(f"    Action: Created new box")
             if bbox:
                 print(f"    New box coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
@@ -302,9 +698,7 @@ def update_keyframe(code):
         print(f"    Edit Type: {edit_type.upper()}")
         print(f"    Had Original Box: {had_original}")
         
-        if edit_type == 'deletion':
-            print(f"    Action: Deleted existing box")
-        elif edit_type == 'addition':
+        if edit_type == 'addition':
             print(f"    Action: Created new box")
             if bbox:
                 print(f"    New box coordinates: x_min={bbox['x_min']:.3f}, y_min={bbox['y_min']:.3f}, x_max={bbox['x_max']:.3f}, y_max={bbox['y_max']:.3f}")
@@ -321,6 +715,180 @@ def update_keyframe(code):
         'message': 'Edits received successfully',
         'frame': frame,
         'code': code
+    })
+
+@app.route('/delete-keyframe-iou/<code>', methods=['POST'])
+def delete_keyframe_iou(code):
+    """Delete keyframes based on IoU similarity scanning"""
+    
+    # Get request data
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # Extract fields
+    timestamp = data.get('timestamp')
+    side = data.get('side', 'both')  # Which octopus to delete
+    
+    if timestamp is None:
+        return jsonify({'error': 'Timestamp is required'}), 400
+    
+    # Load keyframes file
+    keyframes_path = Path('videos_keyframes') / f'MVI_{code}_keyframes.json'
+    if not keyframes_path.exists():
+        return jsonify({'error': 'Keyframes file not found'}), 404
+    
+    try:
+        with open(keyframes_path, 'r') as f:
+            keyframes_data = json.load(f)
+    except Exception as e:
+        return jsonify({'error': f'Failed to load keyframes: {str(e)}'}), 500
+    
+    # Find nearest keyframe to timestamp
+    nearest_frame = None
+    nearest_frame_key = None
+    min_time_diff = float('inf')
+    
+    for frame_key, frame_data in keyframes_data['keyframes'].items():
+        frame_timestamp = frame_data.get('timestamp', 0)
+        time_diff = abs(frame_timestamp - timestamp)
+        if time_diff < min_time_diff:
+            min_time_diff = time_diff
+            nearest_frame = frame_data
+            nearest_frame_key = frame_key
+    
+    if not nearest_frame:
+        return jsonify({'error': 'No keyframes found'}), 404
+    
+    # Get reference bounding box for the side we're deleting
+    reference_boxes = {}
+    if side in ['both', 'left'] and nearest_frame.get('left_detections'):
+        reference_boxes['left'] = nearest_frame['left_detections'][0]  # Use first detection
+    if side in ['both', 'right'] and nearest_frame.get('right_detections'):
+        reference_boxes['right'] = nearest_frame['right_detections'][0]  # Use first detection
+    
+    if not reference_boxes:
+        return jsonify({'error': f'No detection found at timestamp {timestamp:.3f}s for side: {side}'}), 404
+    
+    # Sort keyframes by frame number for scanning
+    sorted_frames = sorted(keyframes_data['keyframes'].items(), key=lambda x: int(x[0]))
+    nearest_index = next(i for i, (k, v) in enumerate(sorted_frames) if k == nearest_frame_key)
+    
+    # Scan backward to find interval start
+    interval_start_index = nearest_index
+    for i in range(nearest_index - 1, -1, -1):
+        frame_key, frame_data = sorted_frames[i]
+        should_stop = False
+        
+        # Check each side we're processing
+        for s in ['left', 'right']:
+            if s in reference_boxes:
+                detections = frame_data.get(f'{s}_detections', [])
+                if not detections:
+                    should_stop = True
+                    break
+                
+                # Calculate IoU with reference box
+                current_box = detections[0]  # Use first detection
+                iou = calculate_iou(reference_boxes[s], current_box)
+                if iou < 0.8:
+                    should_stop = True
+                    break
+        
+        if should_stop:
+            break
+        interval_start_index = i
+    
+    # Scan forward to find interval end
+    interval_end_index = nearest_index
+    for i in range(nearest_index + 1, len(sorted_frames)):
+        frame_key, frame_data = sorted_frames[i]
+        should_stop = False
+        
+        # Check each side we're processing
+        for s in ['left', 'right']:
+            if s in reference_boxes:
+                detections = frame_data.get(f'{s}_detections', [])
+                if not detections:
+                    should_stop = True
+                    break
+                
+                # Calculate IoU with reference box
+                current_box = detections[0]  # Use first detection
+                iou = calculate_iou(reference_boxes[s], current_box)
+                if iou < 0.8:
+                    should_stop = True
+                    break
+        
+        if should_stop:
+            break
+        interval_end_index = i
+    
+    # Create backup before deletion
+    import shutil
+    from datetime import datetime
+    backup_path = keyframes_path.with_suffix(f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+    shutil.copy2(keyframes_path, backup_path)
+    
+    # Delete detections within the interval
+    deleted_count = {'left': 0, 'right': 0}
+    affected_frames = []
+    
+    for i in range(interval_start_index, interval_end_index + 1):
+        frame_key, frame_data = sorted_frames[i]
+        affected_frames.append(int(frame_key))
+        
+        if side in ['both', 'left'] and frame_data.get('left_detections'):
+            deleted_count['left'] += len(frame_data['left_detections'])
+            frame_data['left_detections'] = []
+            frame_data['has_left_octopus'] = False
+        
+        if side in ['both', 'right'] and frame_data.get('right_detections'):
+            deleted_count['right'] += len(frame_data['right_detections'])
+            frame_data['right_detections'] = []
+            frame_data['has_right_octopus'] = False
+    
+    # Save updated keyframes
+    try:
+        with open(keyframes_path, 'w') as f:
+            json.dump(keyframes_data, f, indent=2)
+    except Exception as e:
+        # Restore from backup if save fails
+        shutil.move(backup_path, keyframes_path)
+        return jsonify({'error': f'Failed to save keyframes: {str(e)}'}), 500
+    
+    # Get time range of deletion
+    start_time = sorted_frames[interval_start_index][1]['timestamp']
+    end_time = sorted_frames[interval_end_index][1]['timestamp']
+    
+    # Print summary
+    print(f"\n=== IoU-BASED KEYFRAME DELETION ===")
+    print(f"Video ID: MVI_{code}")
+    print(f"Clicked Timestamp: {timestamp:.3f}s")
+    print(f"Nearest Frame: {nearest_frame_key}")
+    print(f"Side: {side.upper()}")
+    print(f"IoU Threshold: 0.95")
+    print(f"Deletion Interval: {start_time:.3f}s - {end_time:.3f}s")
+    print(f"Frames Affected: {len(affected_frames)} (frames {min(affected_frames)} - {max(affected_frames)})")
+    print(f"Left Detections Deleted: {deleted_count['left']}")
+    print(f"Right Detections Deleted: {deleted_count['right']}")
+    print(f"Backup Created: {backup_path.name}")
+    print(f"===================================\n")
+    
+    # Return success response
+    return jsonify({
+        'success': True,
+        'message': 'IoU-based deletion completed',
+        'timestamp': timestamp,
+        'interval': {
+            'start_time': start_time,
+            'end_time': end_time,
+            'start_frame': min(affected_frames),
+            'end_frame': max(affected_frames)
+        },
+        'frames_affected': len(affected_frames),
+        'detections_deleted': deleted_count,
+        'backup_file': backup_path.name
     })
 
 @app.route('/delete-keyframes/<code>', methods=['POST'])

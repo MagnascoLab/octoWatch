@@ -146,8 +146,11 @@ export class OctopusVisualizer {
         // Reload current data (after keyframe deletion)
         this.eventBus.on('ui:reloadCurrentData', async () => {
             if (this.currentVideoCode) {
+                // Get current time
+                const frame = this.videoController.getCurrentFrame();
                 try {
                     await this.dataLoader.handleQuickLoad(this.currentVideoCode);
+                    this.videoController.seekToFrame(frame);
                     this.uiManager.showSuccess('Data reloaded successfully');
                 } catch (error) {
                     this.uiManager.showError('Failed to reload data: ' + error.message);
@@ -509,8 +512,8 @@ export class OctopusVisualizer {
         // Draw resize handles if a box is selected and we're in edit mode
         if (this.selectedBox && this.bboxInteraction.isEnabled) {
             const selectedBbox = this.selectedBox.side === 'left' ? 
-                (this.draggedBboxes && this.draggedBboxes.left ? this.draggedBboxes.left.bbox : leftBbox) :
-                (this.draggedBboxes && this.draggedBboxes.right ? this.draggedBboxes.right.bbox : rightBbox);
+                (this.draggedBboxes && this.draggedBboxes.left ? this.draggedBboxes.left.bbox : null) :
+                (this.draggedBboxes && this.draggedBboxes.right ? this.draggedBboxes.right.bbox : null);
             
             if (selectedBbox) {
                 this.drawResizeHandles(selectedBbox, scaleX, scaleY);
@@ -1196,7 +1199,10 @@ export class OctopusVisualizer {
             
             if (result.success) {
                 this.uiManager.showSuccess('Changes submitted successfully');
-                console.log('Server response:', result);
+                if (this.bboxInteraction.isEnabled) {
+                    this.uiManager.toggleBboxEditMode();
+                }
+                this.eventBus.emit('ui:reloadCurrentData', this.currentVideoCode);
             } else {
                 this.uiManager.showError(result.error || 'Failed to submit changes');
             }

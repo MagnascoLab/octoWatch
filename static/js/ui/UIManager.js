@@ -667,7 +667,7 @@ export class UIManager {
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 1000,
             timerProgressBar: true
         });
     }
@@ -685,7 +685,7 @@ export class UIManager {
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 1000,
             timerProgressBar: true
         });
     }
@@ -703,7 +703,7 @@ export class UIManager {
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 1000,
             timerProgressBar: true
         });
     }
@@ -931,7 +931,7 @@ export class UIManager {
                 toast: true,
                 position: 'top',
                 showConfirmButton: false,
-                timer: 4000,
+                timer: 1000,
                 timerProgressBar: true
             });
         } else {
@@ -966,7 +966,7 @@ export class UIManager {
                 toast: true,
                 position: 'top',
                 showConfirmButton: false,
-                timer: 4000,
+                timer: 1000,
                 timerProgressBar: true,
                 background: '#dc3545',
                 color: '#fff',
@@ -1184,7 +1184,7 @@ export class UIManager {
                         toast: true,
                         position: 'top-end',
                         showConfirmButton: false,
-                        timer: 2000
+                        timer: 1000
                     });
                     
                     // Trigger reload of current video
