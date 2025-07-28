@@ -861,6 +861,12 @@ export class UIManager {
      */
     setupHeatmapInteraction() {
         const heatmap = this.elements.activityHeatmap;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.state.deletionMode) {
+                // Exit deletion mode on Escape key
+                this.clearDeletionSelection();
+            }
+        });
         
         heatmap.addEventListener('mousedown', (e) => {
             const rect = heatmap.getBoundingClientRect();
@@ -885,12 +891,14 @@ export class UIManager {
         });
         
         heatmap.addEventListener('mouseup', (e) => {
+            // Check if the mouse is still within the heatmap bounds
+            
             if (this.state.deletionMode && this.state.deletionSelection.isDragging) {
                 this.state.deletionSelection.isDragging = false;
                 this.finalizeDeletionSelection();
             } else if (!this.state.deletionMode) {
-                // Normal seeking behavior
                 const rect = heatmap.getBoundingClientRect();
+                // Normal seeking behavior
                 const progress = (e.clientX - rect.left) / rect.width;
                 this.eventBus.emit('ui:heatmapSeek', { progress });
             }
@@ -900,7 +908,8 @@ export class UIManager {
         heatmap.addEventListener('mouseleave', () => {
             if (this.state.deletionSelection.isDragging) {
                 this.state.deletionSelection.isDragging = false;
-                this.finalizeDeletionSelection();
+                //this.finalizeDeletionSelection();
+                this.clearDeletionSelection();
             }
         });
     }
@@ -934,6 +943,9 @@ export class UIManager {
                 timer: 1000,
                 timerProgressBar: true
             });
+            // Disable the "Delete Keyframes" button if in bbox edit mode
+            this.elements.deleteKeyframesBtn.disabled = true;
+            this.elements.deleteKeyframesBtn.classList.add('disabled');
         } else {
             // Exiting bbox edit mode
             this.elements.editBoundingBoxesBtn.classList.remove('active');
@@ -945,6 +957,9 @@ export class UIManager {
             
             // Emit event to disable bbox interaction
             this.eventBus.emit('ui:toggleBboxEdit');
+            // Re-enable the "Delete Keyframes" button
+            this.elements.deleteKeyframesBtn.disabled = false;
+            this.elements.deleteKeyframesBtn.classList.remove('disabled');
         }
     }
     
@@ -979,6 +994,10 @@ export class UIManager {
                 endProgress: null,
                 isDragging: false
             };
+
+            // Disable the "Edit Bounding Boxes" button if in deletion mode
+            this.elements.editBoundingBoxesBtn.disabled = true;
+            this.elements.editBoundingBoxesBtn.classList.add('disabled');
         } else {
             // Exiting deletion mode
             this.elements.deleteKeyframesBtn.classList.remove('active');
@@ -986,6 +1005,9 @@ export class UIManager {
             this.elements.activityHeatmap.classList.remove('deletion-mode');
             this.elements.deletionSideContainer.style.display = 'none';
             this.clearDeletionSelection();
+            // Re-enable the "Edit Bounding Boxes" button
+            this.elements.editBoundingBoxesBtn.disabled = false;
+            this.elements.editBoundingBoxesBtn.classList.remove('disabled');
         }
         
         this.eventBus.emit(Events.DELETION_MODE_TOGGLE, { active: this.state.deletionMode });
@@ -996,14 +1018,15 @@ export class UIManager {
      */
     updateDeletionSelection() {
         const { startProgress, endProgress } = this.state.deletionSelection;
-        
+        const side = this.elements.deletionSideSelect.value;        
         // Ensure start is before end
         const start = Math.min(startProgress, endProgress);
         const end = Math.max(startProgress, endProgress);
         
         this.eventBus.emit(Events.DELETION_SELECTION_UPDATE, {
             startProgress: start,
-            endProgress: end
+            endProgress: end,
+            side: side
         });
     }
     

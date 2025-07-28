@@ -34,7 +34,8 @@ export class HeatmapRenderer {
         // Deletion selection
         this.deletionSelection = {
             startProgress: null,
-            endProgress: null
+            endProgress: null,
+            side: "both"
         };
         
         this.setupEventListeners();
@@ -79,6 +80,7 @@ export class HeatmapRenderer {
         this.eventBus.on(Events.DELETION_SELECTION_UPDATE, (data) => {
             this.deletionSelection.startProgress = data.startProgress;
             this.deletionSelection.endProgress = data.endProgress;
+            this.deletionSelection.side = data.side || "both"; // Default to both if not specified
             this.render();
         });
     }
@@ -349,13 +351,14 @@ export class HeatmapRenderer {
      * Draw deletion selection overlay
      */
     drawDeletionSelection() {
-        const { startProgress, endProgress } = this.deletionSelection;
+        const { startProgress, endProgress, side } = this.deletionSelection;
         
         if (startProgress === null || endProgress === null) return;
         
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
+        const quarterHeight = height / 4;
         
         // Calculate x positions
         const startX = startProgress * width;
@@ -365,24 +368,89 @@ export class HeatmapRenderer {
         
         // Draw semi-transparent red overlay
         ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-        ctx.fillRect(leftX, 0, selectionWidth, height);
+        
+        // Determine which bars to overlay based on side selection
+        if (side === 'left') {
+            // Left proximity (top quarter)
+            ctx.fillRect(leftX, 0, selectionWidth, quarterHeight);
+            // Left activity (third quarter)
+            ctx.fillRect(leftX, quarterHeight * 2, selectionWidth, quarterHeight);
+        } else if (side === 'right') {
+            // Right proximity (second quarter)
+            ctx.fillRect(leftX, quarterHeight, selectionWidth, quarterHeight);
+            // Right activity (bottom quarter)
+            ctx.fillRect(leftX, quarterHeight * 3, selectionWidth, quarterHeight);
+        } else if (side === 'both') {
+            // All bars
+            ctx.fillRect(leftX, 0, selectionWidth, height);
+        }
         
         // Draw border lines
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         
-        // Left border
-        ctx.beginPath();
-        ctx.moveTo(leftX, 0);
-        ctx.lineTo(leftX, height);
-        ctx.stroke();
-        
-        // Right border
-        ctx.beginPath();
-        ctx.moveTo(leftX + selectionWidth, 0);
-        ctx.lineTo(leftX + selectionWidth, height);
-        ctx.stroke();
+        // Draw segmented borders based on side selection
+        if (side === 'left') {
+            // Left borders for left proximity
+            ctx.beginPath();
+            ctx.moveTo(leftX, 0);
+            ctx.lineTo(leftX, quarterHeight);
+            ctx.stroke();
+            
+            // Right borders for left proximity
+            ctx.beginPath();
+            ctx.moveTo(leftX + selectionWidth, 0);
+            ctx.lineTo(leftX + selectionWidth, quarterHeight);
+            ctx.stroke();
+            
+            // Left borders for left activity
+            ctx.beginPath();
+            ctx.moveTo(leftX, quarterHeight * 2);
+            ctx.lineTo(leftX, quarterHeight * 3);
+            ctx.stroke();
+            
+            // Right borders for left activity
+            ctx.beginPath();
+            ctx.moveTo(leftX + selectionWidth, quarterHeight * 2);
+            ctx.lineTo(leftX + selectionWidth, quarterHeight * 3);
+            ctx.stroke();
+        } else if (side === 'right') {
+            // Left borders for right proximity
+            ctx.beginPath();
+            ctx.moveTo(leftX, quarterHeight);
+            ctx.lineTo(leftX, quarterHeight * 2);
+            ctx.stroke();
+            
+            // Right borders for right proximity
+            ctx.beginPath();
+            ctx.moveTo(leftX + selectionWidth, quarterHeight);
+            ctx.lineTo(leftX + selectionWidth, quarterHeight * 2);
+            ctx.stroke();
+            
+            // Left borders for right activity
+            ctx.beginPath();
+            ctx.moveTo(leftX, quarterHeight * 3);
+            ctx.lineTo(leftX, height);
+            ctx.stroke();
+            
+            // Right borders for right activity
+            ctx.beginPath();
+            ctx.moveTo(leftX + selectionWidth, quarterHeight * 3);
+            ctx.lineTo(leftX + selectionWidth, height);
+            ctx.stroke();
+        } else if (side === 'both') {
+            // Full height borders
+            ctx.beginPath();
+            ctx.moveTo(leftX, 0);
+            ctx.lineTo(leftX, height);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(leftX + selectionWidth, 0);
+            ctx.lineTo(leftX + selectionWidth, height);
+            ctx.stroke();
+        }
         
         ctx.setLineDash([]);
     }

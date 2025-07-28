@@ -387,6 +387,11 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     # Detect tank if not provided
     if tank_bbox is None:
         print("Loading moondream model for tank detection...")
+        emit_progress({
+            'type': 'progress',
+            'stage': 'tank_detection',
+            'message': 'Loading moondream model for tank detection... (can take 10+ minutes if first time)',
+        })
         moondream_model = AutoModelForCausalLM.from_pretrained(
             "vikhyatk/moondream2",
             revision="2025-06-21",

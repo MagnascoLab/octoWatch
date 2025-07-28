@@ -480,7 +480,6 @@ export class OctopusVisualizer {
             
             // Use dragged bbox if available
             if (this.draggedBboxes && this.draggedBboxes.left) {
-                console.log(this.draggedBboxes.left);
                 leftBbox = this.draggedBboxes.left.bbox;
             }
             

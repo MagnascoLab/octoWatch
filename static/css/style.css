@@ -426,7 +426,6 @@ button:disabled {
 .screenshot-btn:hover {
     background-color: #138496;
 }
-
 .delete-keyframes-btn {
     background-color: #dc3545;
     color: white;
@@ -444,6 +443,16 @@ button:disabled {
 
 .delete-keyframes-btn.active:hover {
     background-color: #5a6268;
+}
+
+.delete-keyframes-btn:disabled,
+.delete-keyframes-btn[disabled],
+.control-button.disabled,
+.control-button[disabled] {
+    background-color: #adb5bd !important;
+    color: #f8f9fa !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
 }
 
 /* Heatmap in deletion mode */
