@@ -295,26 +295,6 @@ export class BoundingBoxInteraction {
     calculateResizedBox(originalBox, mouseCoords, handle) {
         let newBox = { ...originalBox };
         
-        // Apply constraints to ensure minimum size
-        const applyMinSize = (box) => {
-            if (box.x_max - box.x_min < this.minBoxSize) {
-                const center = (box.x_min + box.x_max) / 2;
-                box.x_min = center - this.minBoxSize / 2;
-                box.x_max = center + this.minBoxSize / 2;
-            }
-            if (box.y_max - box.y_min < this.minBoxSize) {
-                const center = (box.y_min + box.y_max) / 2;
-                box.y_min = center - this.minBoxSize / 2;
-                box.y_max = center + this.minBoxSize / 2;
-            }
-            // Clamp to video bounds
-            box.x_min = Math.max(0, Math.min(1, box.x_min));
-            box.x_max = Math.max(0, Math.min(1, box.x_max));
-            box.y_min = Math.max(0, Math.min(1, box.y_min));
-            box.y_max = Math.max(0, Math.min(1, box.y_max));
-            return box;
-        };
-        
         // Update box based on which handle is being dragged
         switch (handle) {
             case 'nw':
@@ -347,7 +327,36 @@ export class BoundingBoxInteraction {
                 break;
         }
         
-        return applyMinSize(newBox);
+        // Handle flipping - swap coordinates if they're inverted
+        if (newBox.x_min > newBox.x_max) {
+            [newBox.x_min, newBox.x_max] = [newBox.x_max, newBox.x_min];
+        }
+        if (newBox.y_min > newBox.y_max) {
+            [newBox.y_min, newBox.y_max] = [newBox.y_max, newBox.y_min];
+        }
+        
+        // Apply constraints to ensure minimum size
+       /* const width = newBox.x_max - newBox.x_min;
+        const height = newBox.y_max - newBox.y_min;
+        
+        if (width < this.minBoxSize) {
+            const center = (newBox.x_min + newBox.x_max) / 2;
+            newBox.x_min = center - this.minBoxSize / 2;
+            newBox.x_max = center + this.minBoxSize / 2;
+        }
+        if (height < this.minBoxSize) {
+            const center = (newBox.y_min + newBox.y_max) / 2;
+            newBox.y_min = center - this.minBoxSize / 2;
+            newBox.y_max = center + this.minBoxSize / 2;
+        }*/
+        
+        // Clamp to video bounds
+        newBox.x_min = Math.max(0, Math.min(1, newBox.x_min));
+        newBox.x_max = Math.max(0, Math.min(1, newBox.x_max));
+        newBox.y_min = Math.max(0, Math.min(1, newBox.y_min));
+        newBox.y_max = Math.max(0, Math.min(1, newBox.y_max));
+        
+        return newBox;
     }
     
     handleMouseUp(event) {

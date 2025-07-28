@@ -111,7 +111,7 @@
             </div>
         </div>
         
-        <div class="top-bar" style="position:fixed;right:10px;top:10px;">
+        <div class="top-bar" style="position:fixed;right:10px;top:10px;z-index:2;">
                 <button id="loadNewBtn" class="load-new-btn">Load New Video</button>
         </div>
         <div id="visualizerSection" class="visualizer-section" style="display: none;">
@@ -119,6 +119,29 @@
             <div class="video-container">
                 <video id="videoPlayer" controls></video>
                 <canvas id="overlayCanvas"></canvas>
+                <div class="activity-legend-overlay">
+                    <fieldset>
+                        <legend>Activity Color Legend</legend>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(255, 0, 0);"></span>
+                                <span>Bottom of tank, near m/p</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(0, 255, 0);"></span>
+                                <span>Far from m/p, top of tank</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: rgb(255, 255, 0);"></span>
+                                <span>Top of tank, near m/p</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: black;"></span>
+                                <span>Bottom of tank, far from m/p</span>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
             </div>
 
 
@@ -159,7 +182,7 @@
                 <input type="range" id="frameSlider" min="0" max="0" value="0">
                 
             </div>
-            
+             
             <div class="playback-controls">
                 <button id="playPauseBtn">Play</button>
                 <button id="prevFrameBtn">← Prev</button>
@@ -175,37 +198,14 @@
             <div style="margin-top:10px;margin-bottom:10px;">Frame: <span id="frameNumber">0</span></div>
             
 
-            <div class="controls" style="position: relative;">
-                <!-- Activity Color Legend (overlaid top-right) -->
-                <div class="activity-legend-overlay">
-                    <fieldset>
-                        <legend>Activity Color Legend</legend>
-                        <div class="legend-items">
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: rgb(255, 0, 0);"></span>
-                                <span>Bottom of tank, near m/p</span>
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: rgb(0, 255, 0);"></span>
-                                <span>Far from m/p, top of tank</span>
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: rgb(255, 255, 0);"></span>
-                                <span>Top of tank, near m/p</span>
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: black;"></span>
-                                <span>Bottom of tank, far from m/p</span>
-                            </div>
-                        </div>
-                    </fieldset>
-                </div>
+            <div class="controls" style="position: absolute;left: 10px; top:100px;max-width:250px;">
 
                 <div class="control-group">
                     <label>
                         <input type="checkbox" id="showTank" checked>
                         Show Tank Boundaries
                     </label>
+                    <br>
                     <label>
                         <input type="checkbox" id="enableInterpolation" checked>
                         Enable Interpolation
@@ -216,18 +216,19 @@
                             <input type="checkbox" id="showTrajectory">
                             Show Trajectory
                         </label>
+                        <br>
                         <div id="trajectoryAlphaContainer" style="display: none; align-items: center; gap: 5px;">
                             <span style="font-size: 12px;">Alpha:</span>
                             <input type="range" id="trajectoryAlphaSlider" min="0" max="1" step="0.01" value="0.5" style="width: 100px;">
                             <span id="trajectoryAlphaValue" style="font-size: 12px; min-width: 30px;">0.50</span>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div>
                         <label>
                             <input type="checkbox" id="showSpatialHeatmap">
                             Show Spatial Heatmap
                         </label>
-                        <div id="heatmapAlphaContainer" style="display: none; align-items: center; gap: 5px;">
+                        <div id="heatmapAlphaContainer" style="display: none;">
                             <span style="font-size: 12px;">Alpha:</span>
                             <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 100px;">
                             <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 30px;">0.70</span>
