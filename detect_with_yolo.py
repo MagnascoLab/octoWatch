@@ -480,10 +480,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     
     # Load model
     model = YOLO(model_path)
-    #model.to(device)
-    if device == "cpu":
-        model.model.float()
-        model.model.fuse()
+
     
     # Open video
     cap = cv2.VideoCapture(video_path)
