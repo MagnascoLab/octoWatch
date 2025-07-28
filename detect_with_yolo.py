@@ -11,6 +11,7 @@ from PIL import Image
 import numpy as np
 from transformers import AutoModelForCausalLM
 import sys
+import moondream as md
 
 def emit_progress(data):
     """Emit progress update in JSON format"""
@@ -407,13 +408,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             'stage': 'tank_detection',
             'message': 'Loading moondream model for tank detection... (can take 10+ minutes if first time)',
         })
-        moondream_model = AutoModelForCausalLM.from_pretrained(
-            "vikhyatk/moondream2",
-            revision="2025-06-21",
-            trust_remote_code=True,
-            device_map={"": moondream_device}
-        )
-        
+        moondream_model = md.vl(api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiJlMzBlODI3ZC03ZTVjLTQ0N2QtYTRhMS03MDcxZDU2ZDAzYTUiLCJvcmdfaWQiOiJ1VjhkWnV6VGJHWWtkUjN0UG1Va0U5M25MNDRkMW1scSIsImlhdCI6MTc1MzczMzIyMCwidmVyIjoxfQ.PJgISZ3nvUZSuzFOEOkU0MngTQB7lPWYRh8uQmzIYHs")
         found, bbox_tuple = find_tank_bbox(video_path, moondream_model, scale=scale)
         if not found:
             raise ValueError("Could not find tank in video")
