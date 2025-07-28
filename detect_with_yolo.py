@@ -12,6 +12,7 @@ import numpy as np
 from transformers import AutoModelForCausalLM
 import sys
 import moondream as md
+import platform
 
 def emit_progress(data):
     """Emit progress update in JSON format"""
@@ -28,6 +29,46 @@ def get_best_available_device():
         return 'mps'
     else:
         return 'cpu'
+
+
+def get_best_model_format(model_base_path="default_detector"):
+    """Auto-detect the best model format based on platform and available files"""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    
+    # Check available model files
+    mlpackage_path = Path(f"{model_base_path}.mlpackage")
+    openvino_path = Path(f"{model_base_path}_int8_openvino_model")
+    onnx_path = Path(f"{model_base_path}.onnx")
+    pt_path = Path(f"{model_base_path}.pt")
+    
+    # Priority order based on platform
+    if system == "darwin":  # macOS
+        if mlpackage_path.exists():
+            print(f"Using CoreML model for macOS: {mlpackage_path}")
+            print("Note: CoreML requires 'coremltools' package")
+            return str(mlpackage_path)
+        elif onnx_path.exists():
+            print(f"Using ONNX model as fallback: {onnx_path}")
+            return str(onnx_path)
+    elif "intel" in machine or "x86" in machine or "amd" in machine:
+        if openvino_path.exists():
+            print(f"Using OpenVINO model for Intel/x86: {openvino_path}")
+            print("Note: OpenVINO requires 'openvino' package")
+            return str(openvino_path)
+        elif onnx_path.exists():
+            print(f"Using ONNX model as fallback: {onnx_path}")
+            return str(onnx_path)
+    
+    # Default fallback order
+    if onnx_path.exists():
+        print(f"Using ONNX model (default): {onnx_path}")
+        return str(onnx_path)
+    elif pt_path.exists():
+        print(f"Using PyTorch model as last resort: {pt_path}")
+        return str(pt_path)
+    
+    raise FileNotFoundError(f"No suitable model format found. Looked for: {mlpackage_path}, {openvino_path}, {onnx_path}, {pt_path}")
 
 
 def compute_iou(box1, box2):
@@ -351,7 +392,7 @@ def process_batch_and_store_results(model, batch_frames: List[np.ndarray], batch
         print(f"Frame {frame_num} (t={frame_num/fps:.2f}s): Left: {left_status}, Right: {right_status}")
         
         # Emit progress every 30 frames (approximately every second at 30fps)
-        if frame_num % 30 == 0:
+        if frame_num % 1 == 0:
             # Get current total detections from keyframe_data
             current_left_total = sum(len(kf['left_detections']) for kf in keyframe_data['keyframes'].values())
             current_right_total = sum(len(kf['right_detections']) for kf in keyframe_data['keyframes'].values())
@@ -439,7 +480,10 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     
     # Load model
     model = YOLO(model_path)
-    model.to(device)
+    #model.to(device)
+    if device == "cpu":
+        model.model.float()
+        model.model.fuse()
     
     # Open video
     cap = cv2.VideoCapture(video_path)
@@ -587,7 +631,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
 def main():
     parser = argparse.ArgumentParser(description='Run YOLO octopus detection on video')
     parser.add_argument('video', type=str, help='Path to input video file')
-    parser.add_argument('--model', type=str, help='Path to trained YOLO model', default="default_detector.pt")
+    parser.add_argument('--model', type=str, help='Path to trained YOLO model (auto-detected if not specified)', default=None)
     parser.add_argument('--tank-keyframes', type=str,
                         help='Path to keyframes JSON with tank bbox info (optional)')
     parser.add_argument('--tank-bbox', type=str,
@@ -606,7 +650,7 @@ def main():
                         help='Device for moondream tank detection (default: auto-detect)')
     parser.add_argument('--scale', type=float, default=0.5,
                         help='Scale factor for moondream processing (default: 0.5)')
-    parser.add_argument('--batch-size', type=int, default=4,
+    parser.add_argument('--batch-size', type=int, default=1,
                         help='Number of frames to process in parallel (default: 4)')
     parser.add_argument('--no-preprocess', action='store_true',
                         help='Disable preprocessing of keyframes to remove extra detections')
@@ -652,6 +696,10 @@ def main():
         args.output = f"videos_keyframes/MVI_{args.video}_keyframes.json"
         args.video = video_path
 
+    # Auto-detect model format if not specified
+    if args.model is None:
+        args.model = get_best_model_format()
+    
     # Run detection
     keyframe_data = detect_octopus_in_video(
         args.video,
