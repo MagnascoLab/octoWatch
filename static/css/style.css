@@ -297,7 +297,7 @@ button:disabled {
 
 .video-container {
     position: relative;
-    width: 100%;
+    width: 75%;
     max-width: 960px;
     margin: 0 auto 20px;
     background: #000;
