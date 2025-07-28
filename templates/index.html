@@ -120,6 +120,46 @@
                 <video id="videoPlayer" controls></video>
                 <canvas id="overlayCanvas"></canvas>
             </div>
+
+
+                <div class="frame-control" style="position: relative;">
+                    <!-- Fourier overlay controls -->
+                    <div id="fourierControls" style="display: none; position: absolute; top: -75px; right: 10px; background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 200px;">
+                        <label style="font-size: 12px; font-weight: bold;">Frequency Rank: <span id="freqRankValue">1</span></label>
+                        <input type="range" id="freqRankSlider" min="1" max="10" value="1" style="width: 100%; margin-top: 5px;">
+                        <div id="freqInfo" style="font-size: 11px; color: #666; margin-top: 8px; text-align: center;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label>Frame: <span id="frameNumber">0</span></label>
+                        <div id="deletionSideContainer" style="display: none;">
+                            <label style="margin-right: 10px;">Delete keyframes from:</label>
+                            <select id="deletionSideSelect">
+                                <option value="both">Both Sides</option>
+                                <option value="left">Left Side Only</option>
+                                <option value="right">Right Side Only</option>
+                            </select>
+                            <label style="margin-left: 20px; margin-right: 10px;">Method:</label>
+                            <select id="deletionMethodSelect">
+                                <option value="delete">Delete</option>
+                                <option value="infill">Infill (Interpolate)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <canvas id="activityHeatmap"></canvas>
+                    <input type="range" id="frameSlider" min="0" max="0" value="0">
+                    
+                    
+                </div>
+                
+                <div class="playback-controls">
+                    <button id="playPauseBtn">Play</button>
+                    <button id="prevFrameBtn">← Prev</button>
+                    <button id="nextFrameBtn">Next →</button>
+                    <button id="prevKeyframeBtn">← Prev KF</button>
+                    <button id="nextKeyframeBtn">Next KF →</button>
+                    <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+                    <button id="deleteKeyframesBtn" class="delete-keyframes-btn">🗑️ Delete Keyframes</button>
+                </div>
             
             <div class="controls" style="position: relative;">
                 <!-- Activity Color Legend (overlaid top-right) -->
@@ -267,45 +307,6 @@
                         <input type="checkbox" id="fourierAnalysis"> Show Fourier Analysis
                     </label>
                 </div>-->
-                
-                <div class="frame-control" style="position: relative;">
-                    <!-- Fourier overlay controls -->
-                    <div id="fourierControls" style="display: none; position: absolute; top: -75px; right: 10px; background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); min-width: 200px;">
-                        <label style="font-size: 12px; font-weight: bold;">Frequency Rank: <span id="freqRankValue">1</span></label>
-                        <input type="range" id="freqRankSlider" min="1" max="10" value="1" style="width: 100%; margin-top: 5px;">
-                        <div id="freqInfo" style="font-size: 11px; color: #666; margin-top: 8px; text-align: center;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <label>Frame: <span id="frameNumber">0</span></label>
-                        <div id="deletionSideContainer" style="display: none;">
-                            <label style="margin-right: 10px;">Delete keyframes from:</label>
-                            <select id="deletionSideSelect">
-                                <option value="both">Both Sides</option>
-                                <option value="left">Left Side Only</option>
-                                <option value="right">Right Side Only</option>
-                            </select>
-                            <label style="margin-left: 20px; margin-right: 10px;">Method:</label>
-                            <select id="deletionMethodSelect">
-                                <option value="delete">Delete</option>
-                                <option value="infill">Infill (Interpolate)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <canvas id="activityHeatmap"></canvas>
-                    <input type="range" id="frameSlider" min="0" max="0" value="0">
-                    
-                    
-                </div>
-                
-                <div class="playback-controls">
-                    <button id="playPauseBtn">Play</button>
-                    <button id="prevFrameBtn">← Prev</button>
-                    <button id="nextFrameBtn">Next →</button>
-                    <button id="prevKeyframeBtn">← Prev KF</button>
-                    <button id="nextKeyframeBtn">Next KF →</button>
-                    <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
-                    <button id="deleteKeyframesBtn" class="delete-keyframes-btn">🗑️ Delete Keyframes</button>
-                </div>
             </div>
             
             <div class="info-panel" hidden>
