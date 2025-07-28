@@ -19,6 +19,16 @@ def emit_progress(data):
         sys.stdout.flush()
 
 
+def get_best_available_device():
+    """Auto-detect the best available device for moondream model"""
+    if torch.cuda.is_available():
+        return 'cuda'
+    elif torch.backends.mps.is_available():
+        return 'mps'
+    else:
+        return 'cpu'
+
+
 def compute_iou(box1, box2):
     """Compute Intersection over Union between two bounding boxes"""
     x1 = max(box1['x_min'], box2['x_min'])
@@ -363,7 +373,7 @@ def process_batch_and_store_results(model, batch_frames: List[np.ndarray], batch
 def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = None,
                             duration: float = 60, hertz: float = 2,
                             conf_threshold: float = 0.25, device: str = None,
-                            moondream_device: str = 'mps', scale: float = 0.5,
+                            moondream_device: str = None, scale: float = 0.5,
                             batch_size: int = 4, preprocess: bool = True) -> Dict:
     """
     Run YOLO detection on video, processing tank halves separately with batch processing.
@@ -386,6 +396,11 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     """
     # Detect tank if not provided
     if tank_bbox is None:
+        # Auto-detect device if not specified
+        if moondream_device is None:
+            moondream_device = get_best_available_device()
+            print(f"Auto-detected moondream device: {moondream_device}")
+        
         print("Loading moondream model for tank detection...")
         emit_progress({
             'type': 'progress',
@@ -592,8 +607,8 @@ def main():
                         help='Output JSON file path (default: <video>_yolo_keyframes.json)')
     parser.add_argument('--device', type=str, choices=['cuda', 'mps', 'cpu'],
                         help='Device to use for YOLO (auto-detected if not specified)')
-    parser.add_argument('--moondream-device', type=str, default='mps',
-                        help='Device for moondream tank detection (default: mps)')
+    parser.add_argument('--moondream-device', type=str, default=None,
+                        help='Device for moondream tank detection (default: auto-detect)')
     parser.add_argument('--scale', type=float, default=0.5,
                         help='Scale factor for moondream processing (default: 0.5)')
     parser.add_argument('--batch-size', type=int, default=4,
@@ -604,6 +619,11 @@ def main():
                         help='Output progress updates as JSON (for web interface)')
     
     args = parser.parse_args()
+    
+    # Auto-detect moondream device if not specified
+    if args.moondream_device is None:
+        args.moondream_device = get_best_available_device()
+        print(f"Auto-detected moondream device: {args.moondream_device}")
     
     # Get tank bbox from various sources
     tank_bbox = None

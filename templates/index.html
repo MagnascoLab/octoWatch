@@ -211,16 +211,15 @@
                         Enable Interpolation
                     </label>
                    
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div>
                         <label>
                             <input type="checkbox" id="showTrajectory">
                             Show Trajectory
                         </label>
-                        <br>
-                        <div id="trajectoryAlphaContainer" style="display: none; align-items: center; gap: 5px;">
-                            <span style="font-size: 12px;">Alpha:</span>
-                            <input type="range" id="trajectoryAlphaSlider" min="0" max="1" step="0.01" value="0.5" style="width: 100px;">
-                            <span id="trajectoryAlphaValue" style="font-size: 12px; min-width: 30px;">0.50</span>
+                        <div id="trajectoryAlphaContainer" style="display: none; margin-top: 8px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; align-items: center; gap: 10px;">
+                            <span style="font-size: 12px; color: #666; font-weight: 500;">Alpha:</span>
+                            <input type="range" id="trajectoryAlphaSlider" min="0" max="1" step="0.01" value="0.5" style="width: 120px; cursor: pointer;">
+                            <span id="trajectoryAlphaValue" style="font-size: 12px; min-width: 35px; font-weight: 500; color: #333;">0.50</span>
                         </div>
                     </div>
                     <div>
@@ -228,10 +227,10 @@
                             <input type="checkbox" id="showSpatialHeatmap">
                             Show Spatial Heatmap
                         </label>
-                        <div id="heatmapAlphaContainer" style="display: none;">
-                            <span style="font-size: 12px;">Alpha:</span>
-                            <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 100px;">
-                            <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 30px;">0.70</span>
+                        <div id="heatmapAlphaContainer" style="display: none; margin-top: 8px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; align-items: center; gap: 10px;">
+                            <span style="font-size: 12px; color: #666; font-weight: 500;">Alpha:</span>
+                            <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 120px; cursor: pointer;">
+                            <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 35px; font-weight: 500; color: #333;">0.70</span>
                         </div>
                     </div>
                     <button id="exportMenuBtn" style="display: none; margin-top: 5px;">Export Data ↓</button>
@@ -288,15 +287,15 @@
                     <input type="range" id="proximitySensitivitySlider" min="1" max="3" step="0.001" value="2">
                 </div>
                 
-                <div class="control-group">
+                <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                     <label>Activity Metric:</label>
                     <select id="activityMetric">
                         <option value="centroid">Centroid-Based</option>
                         <option value="iou">Box-Based</option>
                     </select>
                 </div>
-                
-                <div class="control-group">
+
+                <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                     <label>Proximity Metric:</label>
                     <select id="proximityMetric">
                         <option value="edge">Box-Based</option>
