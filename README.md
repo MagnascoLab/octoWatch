@@ -143,21 +143,16 @@ When you're done using OctoWatch:
 3. The program will stop
 4. You can close the terminal window
 
-
-## Quick Reference Card
-
-Save these commands for daily use:
-
-**Every time you want to use OctoWatch:**
-```
-cd octoWatch
-conda activate octowatch
-python app.py
-```
-
-**Then open your browser to:** `http://localhost:5172`
-
-**To stop OctoWatch:** Press `Control + C` in the terminal
+### Updating OctoWatch
+To keep OctoWatch up-to-date, you can run the following commands periodically:
+1. Open your terminal
+2. Navigate to the OctoWatch folder
+3. Run the following commands - this will pull the latest changes from the GitHub repository and update your environment:
+   ```
+   git pull
+   conda activate octowatch
+   pip install -r requirements.txt
+   ```
 
 ## Using OctoWatch Features
 
