@@ -95,7 +95,7 @@
         <!-- Keyframe Deletion Confirmation Modal -->
         <div id="keyframeDeletionModal" class="modal" style="display: none;">
             <div class="modal-content" style="max-width: 500px;max-height: 300px;">
-                <h3>Confirm Keyframe Deletion</h3>
+                <h3 id="deleteConfirmText">Confirm Keyframe Deletion</h3>
                 <p id="keyframeDeletionMessage"></p>
                 <div class="deletion-info">
                     <div>Side: <span id="deletionSide"></span></div>
@@ -177,7 +177,7 @@
                 <button id="nextKeyframeBtn">Next KF →</button>
                 <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
                 <button id="deleteKeyframesBtn" class="delete-keyframes-btn">🗑️ Delete Keyframes</button>
-                <button id="editBoundingBoxesBtn" class="control-button" style="background-color: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;" hidden>
+                <button id="editBoundingBoxesBtn" class="control-button" style="background-color: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;">
                 Edit Bounding Boxes
                 </button>
             </div>
@@ -186,7 +186,7 @@
             <div class="controls" style="position: absolute;right: 10px; top:50px;max-width:250px;">
                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <div id="deletionSideContainer" style="display: none;">
-                        <label style="margin-right: 10px;">Delete keyframes from:</label>
+                        <label id="deletionName" style="margin-right: 10px;">Delete keyframes from:</label>
                         <select id="deletionSideSelect">
                             <option value="both">Both Sides</option>
                             <option value="left">Left Side Only</option>
@@ -194,11 +194,14 @@
                         </select>
                         <br>
                         <br>
-                        <label style="margin-right: 10px;">Method:</label>
-                        <select id="deletionMethodSelect">
-                            <option value="delete">Delete</option>
-                            <option value="infill">Infill (Interpolate)</option>
-                        </select>
+                        <div id="dMethod">
+                            <label style="margin-right: 10px;">Method:</label>
+                            <select id="deletionMethodSelect">
+                                <option value="delete">Delete</option>
+                                <option value="infill">Infill (Interpolate)</option>
+                            </select>
+                        </div>
+                        
                     </div>
                 </div>
             </div>

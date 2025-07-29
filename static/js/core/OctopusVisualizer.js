@@ -83,7 +83,7 @@ export class OctopusVisualizer {
             this.interpolationEngine = new InterpolationEngine(this.eventBus);
             
             // UI module
-            this.uiManager = new UIManager(this.eventBus);
+            this.uiManager = new UIManager(this.eventBus, this);
             
             // Detection module
             this.detectionManager = new DetectionManager(this.eventBus);

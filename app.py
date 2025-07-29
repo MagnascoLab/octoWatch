@@ -890,7 +890,6 @@ def delete_keyframe_iou(code):
         'detections_deleted': deleted_count,
         'backup_file': backup_path.name
     })
-
 @app.route('/delete-keyframes/<code>', methods=['POST'])
 def delete_keyframes(code):
     """Delete keyframes within a specified time range"""
@@ -909,7 +908,9 @@ def delete_keyframes(code):
     end_frame = data.get('end_frame')
     side = data.get('side', 'both')  # Default to 'both' if not specified
     method = data.get('method', 'delete')  # Default to 'delete' if not specified
-    
+    bbox_update = None
+    if method == "edit":
+        bbox_update = data.get('bbox_update')
     if start_time is None or end_time is None:
         return jsonify({'error': 'start_time and end_time are required'}), 400
     
@@ -936,6 +937,8 @@ def delete_keyframes(code):
     deleted_right = 0
     infilled_left = 0
     infilled_right = 0
+    edited_left = 0
+    edited_right = 0
     
     if method == 'delete':
         # Original deletion logic
@@ -1096,6 +1099,93 @@ def delete_keyframes(code):
                                 infilled_right += 1
                             affected_count += 1
     
+    elif method == 'edit':
+        # Handle edits (additions/modifications)
+        if not bbox_update:
+            return jsonify({'error': 'bbox_update is required for edit method'}), 400
+        
+        # Validate bbox_update structure
+        if not isinstance(bbox_update, dict):
+            return jsonify({'error': 'Invalid bbox_update format'}), 400
+        
+        # Validate individual bbox fields
+        def validate_bbox(bbox_data, side_name):
+            if not isinstance(bbox_data, dict):
+                return False, f"Invalid {side_name} data format"
+            
+            # Check for nested bbox structure
+            if 'bbox' not in bbox_data:
+                return False, f"Missing bbox in {side_name} data"
+            
+            bbox = bbox_data['bbox']
+            required_fields = ['x_min', 'y_min', 'x_max', 'y_max']
+            for field in required_fields:
+                if field not in bbox:
+                    return False, f"Missing {field} in {side_name} bbox"
+            
+            # Validate coordinate ranges (assuming normalized coordinates 0-1)
+            if not (0 <= bbox['x_min'] < bbox['x_max'] <= 1):
+                return False, f"Invalid x coordinates in {side_name} bbox"
+            if not (0 <= bbox['y_min'] < bbox['y_max'] <= 1):
+                return False, f"Invalid y coordinates in {side_name} bbox"
+            
+            return True, None
+        
+        # Validate bbox updates based on side
+        if (side == 'both' or side == 'left') and 'left' in bbox_update:
+            valid, error = validate_bbox(bbox_update['left'], 'left')
+            if not valid:
+                return jsonify({'error': error}), 400
+        
+        if (side == 'both' or side == 'right') and 'right' in bbox_update:
+            valid, error = validate_bbox(bbox_update['right'], 'right')
+            if not valid:
+                return jsonify({'error': error}), 400
+        
+        # Process keyframes
+        if 'keyframes' in keyframes_data:
+            for frame_key, frame_data in keyframes_data['keyframes'].items():
+                timestamp = frame_data.get('timestamp', 0)
+                
+                # Check if timestamp is within range
+                if start_time <= timestamp <= end_time:
+                    # Update based on side selection
+                    if (side == 'both' or side == 'left') and 'left' in bbox_update:
+                        # Extract bbox from nested structure
+                        left_bbox = bbox_update['left']['bbox']
+                        # Create properly formatted detection
+                        left_detection = {
+                            'x_min': left_bbox['x_min'],
+                            'y_min': left_bbox['y_min'],
+                            'x_max': left_bbox['x_max'],
+                            'y_max': left_bbox['y_max'],
+                            'confidence': left_bbox.get('confidence', 0.9),  # Default confidence if not provided
+                            'side': 'left',
+                            'edited': True  # Mark as edited for tracking
+                        }
+                        frame_data['left_detections'] = [left_detection]
+                        frame_data['has_left_octopus'] = True
+                        edited_left += 1
+                    
+                    if (side == 'both' or side == 'right') and 'right' in bbox_update:
+                        # Extract bbox from nested structure
+                        right_bbox = bbox_update['right']['bbox']
+                        # Create properly formatted detection
+                        right_detection = {
+                            'x_min': right_bbox['x_min'],
+                            'y_min': right_bbox['y_min'],
+                            'x_max': right_bbox['x_max'],
+                            'y_max': right_bbox['y_max'],
+                            'confidence': right_bbox.get('confidence', 0.9),  # Default confidence if not provided
+                            'side': 'right',
+                            'edited': True  # Mark as edited for tracking
+                        }
+                        frame_data['right_detections'] = [right_detection]
+                        frame_data['has_right_octopus'] = True
+                        edited_right += 1
+                    
+                    affected_count += 1
+    
     # Save updated keyframes
     try:
         with open(keyframes_path, 'w') as f:
@@ -1118,7 +1208,7 @@ def delete_keyframes(code):
         print(f"Right Detections Deleted: {deleted_right}")
         print(f"Backup Created: {backup_path.name}")
         print(f"===================================")
-    else:
+    elif method == 'infill':
         print(f"=== KEYFRAME INFILL COMPLETED ===")
         print(f"Video ID: MVI_{code}")
         print(f"Method: INFILL")
@@ -1128,6 +1218,18 @@ def delete_keyframes(code):
         print(f"Keyframes Affected: {affected_count}")
         print(f"Left Keyframes Infilled: {infilled_left}")
         print(f"Right Keyframes Infilled: {infilled_right}")
+        print(f"Backup Created: {backup_path.name}")
+        print(f"===================================")
+    elif method == 'edit':
+        print(f"=== KEYFRAME EDIT COMPLETED ===")
+        print(f"Video ID: MVI_{code}")
+        print(f"Method: EDIT")
+        print(f"Side: {side.upper()}")
+        print(f"Time Range: {start_time}s - {end_time}s")
+        print(f"Frames Range: {start_frame} - {end_frame}")
+        print(f"Keyframes Affected: {affected_count}")
+        print(f"Left Keyframes Edited: {edited_left}")
+        print(f"Right Keyframes Edited: {edited_right}")
         print(f"Backup Created: {backup_path.name}")
         print(f"===================================")
     
@@ -1140,13 +1242,14 @@ def delete_keyframes(code):
         'start_time': start_time,
         'end_time': end_time,
         'keyframes_affected': affected_count,
-        'left_detections_deleted': deleted_left,
-        'right_detections_deleted': deleted_right,
-        'left_keyframes_infilled': infilled_left,
-        'right_keyframes_infilled': infilled_right,
+        'left_detections_deleted': deleted_left if method == 'delete' else 0,
+        'right_detections_deleted': deleted_right if method == 'delete' else 0,
+        'left_keyframes_infilled': infilled_left if method == 'infill' else 0,
+        'right_keyframes_infilled': infilled_right if method == 'infill' else 0,
+        'left_keyframes_edited': edited_left if method == 'edit' else 0,
+        'right_keyframes_edited': edited_right if method == 'edit' else 0,
         'backup_file': backup_path.name
     })
-
 @app.route('/delete-video/<code>', methods=['DELETE'])
 def delete_video(code):
     """Delete video and associated keyframes by code"""

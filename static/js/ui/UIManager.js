@@ -10,7 +10,7 @@ export class UIManager {
      * Create a UIManager
      * @param {EventBus} eventBus - Central event system
      */
-    constructor(eventBus) {
+    constructor(eventBus, visualizer) {
         this.eventBus = eventBus;
         
         // UI elements
@@ -85,6 +85,7 @@ export class UIManager {
             keyframeDeletionMessage: document.getElementById('keyframeDeletionMessage'),
             deletionSide: document.getElementById('deletionSide'),
             deletionMethod: document.getElementById('deletionMethod'),
+            dMethod: document.getElementById('dMethod'),
             deletionStartTime: document.getElementById('deletionStartTime'),
             deletionEndTime: document.getElementById('deletionEndTime'),
             deletionFrameCount: document.getElementById('deletionFrameCount'),
@@ -126,6 +127,7 @@ export class UIManager {
         // Data references
         this.keyframesData = null;
         this.videoFilename = null;
+        this.visualizer = visualizer;
         
         this.setupEventListeners();
         this.setupEventHandlers();
@@ -919,8 +921,17 @@ export class UIManager {
      */
     toggleBboxEditMode() {
         this.state.bboxEditMode = !this.state.bboxEditMode;
-        
+        // Bbox edits "hijacks" deletion mode
+        this.state.deletionMode = !this.state.deletionMode;
         if (this.state.bboxEditMode) {
+            document.getElementById('deletionName').innerText = 'Edit keyframes from:';
+            document.getElementById('deleteConfirmText').innerHTML = 'Confirm Keyframe Edit';
+            document.getElementById('confirmKeyframeDeletionBtn').innerHTML = 'Edit Keyframes';
+            this.elements.deletionSideContainer.style.display = 'block';
+            //document.getElementById('deletionMethod').style.display = 'none';
+            // Hide it
+            this.elements.dMethod.hidden = true;
+
             // Entering bbox edit mode
             this.elements.editBoundingBoxesBtn.classList.add('active');
             this.elements.editBoundingBoxesBtn.innerHTML = '✏️ Cancel Edit';
@@ -947,6 +958,12 @@ export class UIManager {
             this.elements.deleteKeyframesBtn.disabled = true;
             this.elements.deleteKeyframesBtn.classList.add('disabled');
         } else {
+            document.getElementById('deletionName').innerText = 'Delete keyframes from:';
+            document.getElementById('deleteConfirmText').innerHTML = 'Confirm Keyframe Deletion';
+            document.getElementById('confirmKeyframeDeletionBtn').innerHTML = 'Delete Keyframes';
+            // Exiting bbox edit mode
+            this.elements.deletionSideContainer.style.display = 'none';
+            this.elements.dMethod.hidden = false;
             // Exiting bbox edit mode
             this.elements.editBoundingBoxesBtn.classList.remove('active');
             this.elements.editBoundingBoxesBtn.innerHTML = 'Edit Bounding Boxes';
@@ -1086,12 +1103,14 @@ export class UIManager {
         this.elements.keyframeDeletionMessage.textContent = method === 'delete' ?
             `This will delete all keyframes between the selected time range.` :
             `This will replace keyframes in the selected range with interpolated values.`;
+        if (this.state.bboxEditMode) {
+            this.elements.keyframeDeletionMessage.textContent = 'This will edit the bounding boxes in the selected range.';
+        }
         this.elements.deletionSide.textContent = sideText;
-        this.elements.deletionMethod.textContent = methodText;
+        this.elements.deletionMethod.textContent = this.state.bboxEditMode ? 'Edit' : methodText;
         this.elements.deletionStartTime.textContent = `${startTime.toFixed(2)}s (frame ${startFrame})`;
         this.elements.deletionEndTime.textContent = `${endTime.toFixed(2)}s (frame ${endFrame})`;
         this.elements.deletionFrameCount.textContent = `${endFrame - startFrame + 1}`;
-        
         // Store selection for confirmation
         this.pendingDeletion = {
             startTime,
@@ -1101,6 +1120,10 @@ export class UIManager {
             side,
             method
         };
+        if (this.state.bboxEditMode) {
+            this.pendingDeletion.method = 'edit';
+            this.pendingDeletion.bboxUpdate = this.visualizer.draggedBboxes;
+        }
         
         // Show confirmation modal
         this.showKeyframeDeletionModal();
@@ -1145,7 +1168,8 @@ export class UIManager {
                     start_frame: this.pendingDeletion.startFrame,
                     end_frame: this.pendingDeletion.endFrame,
                     side: this.pendingDeletion.side,
-                    method: this.pendingDeletion.method
+                    method: this.pendingDeletion.method,
+                    bbox_update: this.state.bboxEditMode ? this.pendingDeletion.bboxUpdate : null
                 })
             });
             
@@ -1160,6 +1184,11 @@ export class UIManager {
                         `Deleted ${data.left_detections_deleted + data.right_detections_deleted} detections from ${data.keyframes_affected} keyframes` :
                         'No keyframes were found in the selected range';
                     title = 'Keyframes Deleted!';
+                } else if (data.method === 'edit') {
+                    stats = data.keyframes_affected > 0 ?
+                        `Edited bounding boxes in ${data.keyframes_affected} keyframes` :
+                        'No keyframes were found in the selected range';
+                    title = 'Keyframes Edited!';
                 } else {
                     // Infill method
                     const totalInfilled = data.left_keyframes_infilled + data.right_keyframes_infilled;
@@ -1169,14 +1198,14 @@ export class UIManager {
                     title = 'Keyframes Infilled!';
                 }
                 
-                Swal.fire({
+                /*Swal.fire({
                     icon: 'success',
                     title: title,
                     html: `
                         <div style="text-align: left;">
                             <p><strong>${stats}</strong></p>
                             <p style="font-size: 0.9em; color: #666;">
-                                Method: ${data.method === 'delete' ? 'Delete' : 'Infill (Interpolate)'}<br>
+                                Method: ${data.method}<br>
                                 Side: ${this.pendingDeletion.side === 'both' ? 'Both' : 
                                        this.pendingDeletion.side === 'left' ? 'Left Only' : 'Right Only'}<br>
                                 Time Range: ${this.pendingDeletion.startTime.toFixed(2)}s - ${this.pendingDeletion.endTime.toFixed(2)}s<br>
@@ -1186,10 +1215,14 @@ export class UIManager {
                     `,
                     confirmButtonColor: '#28a745',
                     confirmButtonText: 'OK'
-                });
+                });*/
                 
                 this.hideKeyframeDeletionModal();
-                this.toggleDeletionMode(); // Exit deletion mode
+                if (this.state.bboxEditMode) {
+                    this.toggleBboxEditMode(); // Exit bbox edit mode
+                } else {
+                    this.toggleDeletionMode(); // Exit deletion mode
+                }
                 
                 // Emit event for other components to update
                 this.eventBus.emit(Events.KEYFRAMES_DELETE, {
@@ -1198,10 +1231,11 @@ export class UIManager {
                     left_detections_deleted: data.left_detections_deleted,
                     right_detections_deleted: data.right_detections_deleted
                 });
-                
+                this.eventBus.emit('ui:reloadCurrentData');
+
                 // Reload the keyframes data to reflect changes
-                setTimeout(() => {
-                    Swal.fire({
+                //setTimeout(() => {
+                   /* Swal.fire({
                         icon: 'info',
                         title: 'Refreshing Data',
                         text: 'Reloading keyframes to reflect changes...',
@@ -1209,11 +1243,10 @@ export class UIManager {
                         position: 'top-end',
                         showConfirmButton: false,
                         timer: 1000
-                    });
+                    });*/
                     
                     // Trigger reload of current video
-                    this.eventBus.emit('ui:reloadCurrentData');
-                }, 1000);
+                //}, 1000);
             } else {
                 this.showError(data.error || 'Failed to delete keyframes');
             }
