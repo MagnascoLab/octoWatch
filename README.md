@@ -37,6 +37,7 @@ Conda helps manage the programming environment for OctoWatch.
    - Click "Next" or "Continue" through the screens
    - Accept the license agreement
    - Use the default installation location (just click "Next")
+   - **IMPORTANT:** When it asks about adding to PATH, make sure to check the box that says "Add Miniconda to my PATH environment variable". This is ***extremely important***!
    - When it's done, click "Finish"
 
 ### Step 3: Install Git (a File Downloader)
