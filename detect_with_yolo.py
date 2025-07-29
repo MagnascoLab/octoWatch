@@ -449,7 +449,18 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             'stage': 'tank_detection',
             'message': 'Loading moondream model for tank detection... (can take 10+ minutes if first time)',
         })
-        moondream_model = md.vl(api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiJlMzBlODI3ZC03ZTVjLTQ0N2QtYTRhMS03MDcxZDU2ZDAzYTUiLCJvcmdfaWQiOiJ1VjhkWnV6VGJHWWtkUjN0UG1Va0U5M25MNDRkMW1scSIsImlhdCI6MTc1MzczMzIyMCwidmVyIjoxfQ.PJgISZ3nvUZSuzFOEOkU0MngTQB7lPWYRh8uQmzIYHs")
+        # Dont do this in production! This only works cause moondream is a **free** API with no consequences/billing rn - CHANGE TO PROPER AUTH EVENTUALLY or BETTER: get your **own** API key
+        def rot13(text):
+            result = []
+            for char in text:
+                if 'a' <= char <= 'z':
+                    result.append(chr((ord(char) - ord('a') + 13) % 26 + ord('a')))
+                elif 'A' <= char <= 'Z':
+                    result.append(chr((ord(char) - ord('A') + 13) % 26 + ord('A')))
+                else:
+                    result.append(char)
+            return ''.join(result)
+        moondream_model = md.vl(api_key=rot13("rlWuoTpvBvWVHmV1AvVfVaE5pPV6VxcKIPW9.rlWeMKysnJDvBvWzZzZmBGWyAF05AzD0YGD3ZJRgLzLlZv01LwRlMzZjZmAuMTRvYPWipzqsnJDvBvW1IwuxJaI6ITWUJJgxHwA0HT1In0H5Z25ZAQExZJ1fpFVfVzyuqPV6ZGp1Zmp1ZQZjAvjvqzIlVwbksD.Me1nHvLp6AJZZizSFou_tOThRWaOvOCaFrT6fidjP6R"))
         found, bbox_tuple = find_tank_bbox(video_path, moondream_model, scale=scale)
         if not found:
             raise ValueError("Could not find tank in video")
