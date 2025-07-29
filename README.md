@@ -54,7 +54,7 @@ Git helps you download the OctoWatch program files.
 **On Windows:**
 1. Go to: https://git-scm.com/downloads
 2. Click on "Windows"
-3. Download will start automatically
+3. Click the "click here to download" link, download will then start
 4. Open the downloaded file
 5. Click "Next" through all the screens (the default options are fine)
 6. Click "Install" and then "Finish"

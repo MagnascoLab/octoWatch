@@ -927,7 +927,7 @@ export class UIManager {
             this.elements.editBoundingBoxesBtn.style.backgroundColor = '#6c757d';
             
             // Show box toggle buttons
-            this.elements.boxToggleContainer.style.display = 'inline-flex';
+            //this.elements.boxToggleContainer.style.display = 'inline-flex';
             
             // Emit event to enable bbox interaction
             this.eventBus.emit('ui:toggleBboxEdit');
@@ -960,6 +960,7 @@ export class UIManager {
             // Re-enable the "Delete Keyframes" button
             this.elements.deleteKeyframesBtn.disabled = false;
             this.elements.deleteKeyframesBtn.classList.remove('disabled');
+            this.eventBus.emit(Events.RENDER_REQUEST);
         }
     }
     
