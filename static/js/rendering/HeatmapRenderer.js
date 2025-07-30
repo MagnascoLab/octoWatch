@@ -81,6 +81,7 @@ export class HeatmapRenderer {
             this.deletionSelection.startProgress = data.startProgress;
             this.deletionSelection.endProgress = data.endProgress;
             this.deletionSelection.side = data.side || "both"; // Default to both if not specified
+            this.deletionSelection.bboxUpdate = data.bboxUpdate || false; // Handle bbox update if provided
             this.render();
         });
     }
@@ -368,6 +369,10 @@ export class HeatmapRenderer {
         
         // Draw semi-transparent red overlay
         ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        if (this.deletionSelection.bboxUpdate) {
+            ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Use blue for bbox update
+           
+        }
         
         // Determine which bars to overlay based on side selection
         if (side === 'left') {
@@ -387,6 +392,9 @@ export class HeatmapRenderer {
         
         // Draw border lines
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        if (this.deletionSelection.bboxUpdate) {
+            ctx.strokeStyle = 'rgba(0, 0, 255, 0.8)'; // Use blue for bbox update
+        }
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         

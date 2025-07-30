@@ -928,6 +928,8 @@ export class UIManager {
             document.getElementById('deleteConfirmText').innerHTML = 'Confirm Keyframe Edit';
             document.getElementById('confirmKeyframeDeletionBtn').innerHTML = 'Edit Keyframes';
             this.elements.deletionSideContainer.style.display = 'block';
+            this.elements.confirmKeyframeDeletionBtn.classList.remove("danger-btn");
+            this.elements.confirmKeyframeDeletionBtn.classList.add("control-button")
             //document.getElementById('deletionMethod').style.display = 'none';
             // Hide it
             this.elements.dMethod.hidden = true;
@@ -936,7 +938,6 @@ export class UIManager {
             this.elements.editBoundingBoxesBtn.classList.add('active');
             this.elements.editBoundingBoxesBtn.innerHTML = '✏️ Cancel Edit';
             this.elements.editBoundingBoxesBtn.style.backgroundColor = '#6c757d';
-            
             // Show box toggle buttons
             //this.elements.boxToggleContainer.style.display = 'inline-flex';
             
@@ -961,9 +962,13 @@ export class UIManager {
             document.getElementById('deletionName').innerText = 'Delete keyframes from:';
             document.getElementById('deleteConfirmText').innerHTML = 'Confirm Keyframe Deletion';
             document.getElementById('confirmKeyframeDeletionBtn').innerHTML = 'Delete Keyframes';
+
             // Exiting bbox edit mode
             this.elements.deletionSideContainer.style.display = 'none';
             this.elements.dMethod.hidden = false;
+
+            this.elements.confirmKeyframeDeletionBtn.classList.remove("control-button");
+            this.elements.confirmKeyframeDeletionBtn.classList.add("danger-btn");
             // Exiting bbox edit mode
             this.elements.editBoundingBoxesBtn.classList.remove('active');
             this.elements.editBoundingBoxesBtn.innerHTML = 'Edit Bounding Boxes';
@@ -1044,7 +1049,8 @@ export class UIManager {
         this.eventBus.emit(Events.DELETION_SELECTION_UPDATE, {
             startProgress: start,
             endProgress: end,
-            side: side
+            side: side,
+            bboxUpdate: this.state.bboxEditMode
         });
     }
     
