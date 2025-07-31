@@ -637,6 +637,96 @@ def delete_keyframes(code):
         'right_keyframes_edited': edited_right if method == 'edit' else 0,
         'backup_file': backup_path.name
     })
+@app.route('/list-backups/<code>')
+def list_backups(code):
+    """List all backup files for a given video code"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    keyframes_dir = Path('videos_keyframes')
+    backup_pattern = f'MVI_{code}_keyframes.backup_*.json'
+    
+    backups = []
+    for backup_path in keyframes_dir.glob(backup_pattern):
+        # Extract timestamp from filename
+        # Format: MVI_XXXX_keyframes.backup_YYYYMMDD_HHMMSS.json
+        timestamp_str = backup_path.stem.split('backup_')[1]
+        
+        try:
+            # Parse timestamp
+            from datetime import datetime
+            timestamp = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
+            
+            # Get file stats
+            stats = backup_path.stat()
+            
+            backups.append({
+                'filename': backup_path.name,
+                'timestamp': timestamp.isoformat(),
+                'timestamp_str': timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'size': stats.st_size,
+                'size_str': f'{stats.st_size / 1024:.1f} KB'
+            })
+        except Exception as e:
+            print(f"Error parsing backup file {backup_path}: {e}")
+            continue
+    
+    # Sort by timestamp, newest first
+    backups.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return jsonify({
+        'code': code,
+        'backups': backups
+    })
+
+@app.route('/restore-backup/<code>', methods=['POST'])
+def restore_backup(code):
+    """Restore a backup file as the current keyframes file"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    data = request.get_json()
+    if not data or 'backup_filename' not in data:
+        return jsonify({'error': 'backup_filename is required'}), 400
+    
+    backup_filename = data['backup_filename']
+    
+    # Validate backup filename format
+    if not backup_filename.startswith(f'MVI_{code}_keyframes.backup_') or not backup_filename.endswith('.json'):
+        return jsonify({'error': 'Invalid backup filename'}), 400
+    
+    keyframes_dir = Path('videos_keyframes')
+    backup_path = keyframes_dir / backup_filename
+    current_keyframes_path = keyframes_dir / f'MVI_{code}_keyframes.json'
+    
+    # Check if backup exists
+    if not backup_path.exists():
+        return jsonify({'error': 'Backup file not found'}), 404
+    
+    try:
+        # Create a backup of the current file before restoring
+        import shutil
+        from datetime import datetime
+        
+        if current_keyframes_path.exists():
+            pre_restore_backup = current_keyframes_path.with_suffix(
+                f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            )
+            shutil.copy2(current_keyframes_path, pre_restore_backup)
+        
+        # Restore the backup
+        shutil.copy2(backup_path, current_keyframes_path)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully restored backup from {backup_filename}',
+            'backup_filename': backup_filename
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to restore backup: {str(e)}'}), 500
+
 @app.route('/delete-video/<code>', methods=['DELETE'])
 def delete_video(code):
     """Delete video and associated keyframes by code"""

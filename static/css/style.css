@@ -445,6 +445,16 @@ button:disabled {
     background-color: #5a6268;
 }
 
+.view-backups-btn {
+    background-color: #17a2b8;
+    color: white;
+    margin-left: 10px;
+}
+
+.view-backups-btn:hover {
+    background-color: #138496;
+}
+
 .delete-keyframes-btn:disabled,
 .delete-keyframes-btn[disabled],
 .control-button.disabled,

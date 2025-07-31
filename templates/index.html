@@ -111,6 +111,33 @@
             </div>
         </div>
         
+        <!-- Backups Modal -->
+        <div id="backupsModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 700px; max-height: 80vh;">
+                <span class="close" id="backupsModalClose">&times;</span>
+                <h2>Keyframe Backups</h2>
+                <div id="backupsContent" style="margin-top: 20px;">
+                    <p id="backupsLoading" style="text-align: center;">Loading backups...</p>
+                    <div id="backupsList" style="display: none;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #ddd;">
+                                    <th style="text-align: left; padding: 10px;">Date/Time</th>
+                                    <th style="text-align: left; padding: 10px;">Size</th>
+                                    <th style="text-align: center; padding: 10px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="backupsTableBody">
+                            </tbody>
+                        </table>
+                        <p id="noBackupsMessage" style="text-align: center; color: #666; margin-top: 20px; display: none;">
+                            No backups found for this video.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="top-bar" style="position:fixed;right:10px;top:10px;z-index:2;">
                 <button id="loadNewBtn" class="load-new-btn">Load New Video</button>
         </div>
@@ -171,8 +198,8 @@
              
             <div class="playback-controls">
                 <button id="playPauseBtn">Play</button>
-                <button id="prevFrameBtn">← Prev</button>
-                <button id="nextFrameBtn">Next →</button>
+                <button id="prevFrameBtn" hidden>← Prev</button>
+                <button id="nextFrameBtn" hidden>Next →</button>
                 <button id="prevKeyframeBtn">← Prev KF</button>
                 <button id="nextKeyframeBtn">Next KF →</button>
                 <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
@@ -180,6 +207,7 @@
                 <button id="editBoundingBoxesBtn" class="control-button" style="background-color: #4CAF50; color: white; padding: 8px 16px; border-radius: 4px; margin-left: 10px;">
                 Edit Bounding Boxes
                 </button>
+                <button id="viewBackupsBtn" class="view-backups-btn">🔄 View Backups</button>
             </div>
             <div style="margin-top:10px;margin-bottom:10px;" hidden>Frame: <span id="frameNumber">0</span></div>
             

@@ -92,6 +92,15 @@ export class UIManager {
             deletionSideSelect: document.getElementById('deletionSideSelect'),
             deletionMethodSelect: document.getElementById('deletionMethodSelect'),
             
+            // Backups controls
+            viewBackupsBtn: document.getElementById('viewBackupsBtn'),
+            backupsModal: document.getElementById('backupsModal'),
+            backupsModalClose: document.getElementById('backupsModalClose'),
+            backupsLoading: document.getElementById('backupsLoading'),
+            backupsList: document.getElementById('backupsList'),
+            backupsTableBody: document.getElementById('backupsTableBody'),
+            noBackupsMessage: document.getElementById('noBackupsMessage'),
+            
             // Analysis controls
             activityMetric: document.getElementById('activityMetric'),
             proximityMetric: document.getElementById('proximityMetric'),
@@ -218,6 +227,23 @@ export class UIManager {
         // Delete keyframes button
         this.elements.deleteKeyframesBtn.addEventListener('click', () => {
             this.toggleDeletionMode();
+        });
+        
+        // View backups button
+        this.elements.viewBackupsBtn.addEventListener('click', () => {
+            this.showBackupsModal();
+        });
+        
+        // Backups modal close button
+        this.elements.backupsModalClose.addEventListener('click', () => {
+            this.hideBackupsModal();
+        });
+        
+        // Close backups modal on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target === this.elements.backupsModal) {
+                this.hideBackupsModal();
+            }
         });
         
         // Edit bounding boxes button
@@ -1245,5 +1271,178 @@ export class UIManager {
         }
         
         this.pendingDeletion = null;
+    }
+    
+    /**
+     * Show backups modal
+     */
+    showBackupsModal() {
+        // Get current video code
+        const videoCode = this.videoFilename?.match(/MVI_(\d{4})/)?.[1];
+        if (!videoCode) {
+            this.showError('Unable to determine video code');
+            return;
+        }
+        
+        // Show modal and loading state
+        this.elements.backupsModal.style.display = 'flex';
+        this.elements.backupsLoading.style.display = 'block';
+        this.elements.backupsList.style.display = 'none';
+        
+        // Fetch backups
+        this.fetchBackups(videoCode);
+    }
+    
+    /**
+     * Hide backups modal
+     */
+    hideBackupsModal() {
+        this.elements.backupsModal.style.display = 'none';
+    }
+    
+    /**
+     * Fetch backups for current video
+     * @param {string} code - Video code
+     */
+    async fetchBackups(code) {
+        try {
+            const response = await fetch(`/list-backups/${code}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.displayBackups(data.backups, code);
+            } else {
+                this.showError(data.error || 'Failed to fetch backups');
+                this.hideBackupsModal();
+            }
+        } catch (error) {
+            this.showError('Network error while fetching backups');
+            this.hideBackupsModal();
+        }
+    }
+    
+    /**
+     * Display backups in modal
+     * @param {Array} backups - Array of backup objects
+     * @param {string} code - Video code
+     */
+    displayBackups(backups, code) {
+        // Hide loading, show list
+        this.elements.backupsLoading.style.display = 'none';
+        this.elements.backupsList.style.display = 'block';
+        
+        // Clear existing table rows
+        this.elements.backupsTableBody.innerHTML = '';
+        
+        if (backups.length === 0) {
+            // Show no backups message
+            this.elements.noBackupsMessage.style.display = 'block';
+            this.elements.backupsTableBody.parentElement.style.display = 'none';
+        } else {
+            // Hide no backups message
+            this.elements.noBackupsMessage.style.display = 'none';
+            this.elements.backupsTableBody.parentElement.style.display = 'table';
+            
+            // Add each backup to table
+            backups.forEach((backup, index) => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #eee';
+                
+                // Date/Time column
+                const dateCell = document.createElement('td');
+                dateCell.style.padding = '10px';
+                dateCell.textContent = backup.timestamp_str;
+                
+                // Size column
+                const sizeCell = document.createElement('td');
+                sizeCell.style.padding = '10px';
+                sizeCell.textContent = backup.size_str;
+                
+                // Actions column
+                const actionsCell = document.createElement('td');
+                actionsCell.style.padding = '10px';
+                actionsCell.style.textAlign = 'center';
+                
+                const restoreBtn = document.createElement('button');
+                restoreBtn.textContent = 'Restore';
+                restoreBtn.className = 'secondary-btn';
+                restoreBtn.style.padding = '5px 15px';
+                restoreBtn.style.fontSize = '14px';
+                restoreBtn.onclick = () => this.confirmRestore(backup.filename, code);
+                
+                actionsCell.appendChild(restoreBtn);
+                
+                row.appendChild(dateCell);
+                row.appendChild(sizeCell);
+                row.appendChild(actionsCell);
+                
+                this.elements.backupsTableBody.appendChild(row);
+            });
+        }
+    }
+    
+    /**
+     * Confirm backup restore
+     * @param {string} backupFilename - Backup file name
+     * @param {string} code - Video code
+     */
+    async confirmRestore(backupFilename, code) {
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: 'Confirm Restore',
+            html: `Are you sure you want to restore from backup?<br><br>
+                   <strong>File:</strong> ${backupFilename}<br><br>
+                   This will replace the current keyframes with the backup version.`,
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, restore',
+            cancelButtonText: 'Cancel'
+        });
+        
+        if (result.isConfirmed) {
+            await this.restoreBackup(backupFilename, code);
+        }
+    }
+    
+    /**
+     * Restore backup
+     * @param {string} backupFilename - Backup file name
+     * @param {string} code - Video code
+     */
+    async restoreBackup(backupFilename, code) {
+        try {
+            const response = await fetch(`/restore-backup/${code}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    backup_filename: backupFilename
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Hide the backups modal
+                this.hideBackupsModal();
+                
+                // Show success message
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Backup Restored!',
+                    text: data.message,
+                    confirmButtonColor: '#28a745'
+                });
+                
+                // Reload the current data
+                this.eventBus.emit('ui:reloadCurrentData');
+            } else {
+                this.showError(data.error || 'Failed to restore backup');
+            }
+        } catch (error) {
+            this.showError('Network error while restoring backup');
+        }
     }
 }
