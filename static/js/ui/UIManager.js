@@ -47,9 +47,6 @@ export class UIManager {
             enableInterpolation: document.getElementById('enableInterpolation'),
             editBoundingBoxesBtn: document.getElementById('editBoundingBoxesBtn'),
             boxToggleContainer: document.getElementById('boxToggleContainer'),
-            leftBoxToggle: document.getElementById('leftBoxToggle'),
-            rightBoxToggle: document.getElementById('rightBoxToggle'),
-            submitBboxChangesBtn: document.getElementById('submitBboxChangesBtn'),
             sideSelect: document.getElementById('sideSelect'),
             showTrajectory: document.getElementById('showTrajectory'),
             trajectoryAlphaContainer: document.getElementById('trajectoryAlphaContainer'),
@@ -227,20 +224,7 @@ export class UIManager {
         this.elements.editBoundingBoxesBtn.addEventListener('click', () => {
             this.toggleBboxEditMode();
         });
-        
-        // Box toggle buttons
-        this.elements.leftBoxToggle.addEventListener('click', () => {
-            this.eventBus.emit('ui:toggleBoxVisibility', { side: 'left' });
-        });
-        
-        this.elements.rightBoxToggle.addEventListener('click', () => {
-            this.eventBus.emit('ui:toggleBoxVisibility', { side: 'right' });
-        });
-        
-        // Submit bbox changes button
-        this.elements.submitBboxChangesBtn.addEventListener('click', () => {
-            this.eventBus.emit('ui:submitBboxChanges');
-        });
+                
         
         // Visualization options
         this.elements.showTank.addEventListener('change', () => {

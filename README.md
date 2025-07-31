@@ -83,7 +83,7 @@ Now we'll create a special space for OctoWatch to run.
    conda create -n octowatch python=3.10
    ```
 2. Press Enter
-3. When it asks "Proceed ([y]/n)?", type `y` and press Enter
+3. If it asks to accept/reject, type `a`. When it asks "Proceed ([y]/n)?", type `y` and press Enter. 
 4. Wait for it to finish (this might take a few minutes)
 5. Then copy and paste:
    ```
@@ -112,10 +112,12 @@ You're ready to run the program!
    python app.py
    ```
 2. Press Enter
-3. You should see text that includes something like "Running on http://localhost:5172"
+3. You should see text that includes something like "Running on http://127.0.0.1:5172" or "Running on http://localhost:5172"
 4. Open your web browser (Chrome, Firefox, Safari, etc.)
 5. In the address bar, type exactly: `http://localhost:5172`
 6. Press Enter - OctoWatch should appear!
+7. Do NOT exit the terminal window - it needs to stay open while you use OctoWatch.
+
 
 ## Using OctoWatch Daily
 
