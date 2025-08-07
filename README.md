@@ -1,5 +1,7 @@
 # OctoWatch - Octopus Tracking Visualizer
 
+*Created by Nathan Breslow, Magnasco Lab, Rockefeller University, August 2025*
+
 ## What is OctoWatch?
 OctoWatch is a tool that helps you visualize and analyze octopus behavior from video recordings. You can upload videos and see heatmaps, trajectories, and other visualizations of octopus movement.
 
