@@ -13,19 +13,8 @@ Don't worry if you've never used the terminal before! We'll walk you through eac
 
 ## Installation Guide
 
-### Step 1: Open Your Terminal
-**On Mac:**
-1. Press `Command + Space` to open Spotlight search
-2. Type "Terminal" and press Enter
-3. A black or white window with text will appear - this is your terminal!
 
-**On Windows:**
-1. Click the Start button
-2. Type "PowerShell" in the search bar
-3. Click on "Windows PowerShell" (NOT "PowerShell ISE")
-4. A blue window with white text will appear - this is your terminal!
-
-### Step 2: Install Conda (a Python Manager)
+### Step 1: Install Conda (a Python Manager)
 Conda helps manage the programming environment for OctoWatch.
 
 1. Go to this website: https://www.anaconda.com/download/success
@@ -39,6 +28,18 @@ Conda helps manage the programming environment for OctoWatch.
    - Use the default installation location (just click "Next")
    - **IMPORTANT:** When it asks about adding to PATH, make sure to check the box that says "Add Miniconda to my PATH environment variable". This is ***extremely important***!
    - When it's done, click "Finish"
+
+### Step 2: Open Your Terminal
+   **On Mac:**
+   1. Press `Command + Space` to open Spotlight search
+   2. Type "Terminal" and press Enter
+   3. A black or white window with text will appear - this is your terminal!
+
+   **On Windows:**
+   1. Click the Start button
+   2. Type "PowerShell" in the search bar
+   3. Click on "Windows PowerShell" (NOT "PowerShell ISE")
+   4. A blue window with white text will appear - this is your terminal!
 
 ### Step 3: Install Git (a File Downloader)
 Git helps you download the OctoWatch program files.
@@ -76,7 +77,6 @@ Now we'll download the actual OctoWatch program.
 5. Press Enter (this moves you into the OctoWatch folder)
 
 ### Step 5: Set Up the OctoWatch Environment
-Now we'll create a special space for OctoWatch to run.
 
 1. Copy and paste this command:
    ```
