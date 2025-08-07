@@ -121,6 +121,7 @@ export const Events = {
     EXPORT_PROXIMITY_JSON: 'export:proximityJSON',
     EXPORT_PROXIMITY_CSV: 'export:proximityCSV',
     EXPORT_ALL_JSON: 'export:allJSON',
+    EXPORT_KEYFRAMES_JSON: 'export:keyframesJSON',
     
     // Keyframe deletion events
     DELETION_MODE_TOGGLE: 'deletion:modeToggle',

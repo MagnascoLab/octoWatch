@@ -241,6 +241,10 @@ export class OctopusVisualizer {
             this.exportAllData();
         });
         
+        this.eventBus.on(Events.EXPORT_KEYFRAMES_JSON, () => {
+            this.exportKeyframesData();
+        });
+        
         // Bounding box editing events
         this.eventBus.on('ui:toggleBboxEdit', () => {
             this.toggleBboxEditMode();
@@ -919,6 +923,17 @@ export class OctopusVisualizer {
         
         const side = this.uiManager.getState().sideSelect;
         this.dataExporter.exportAllJSON(allData, side);
+    }
+    
+    /**
+     * Export keyframes data as JSON
+     */
+    exportKeyframesData() {
+        if (!this.keyframesData) {
+            console.error('No keyframes data available to export');
+            return;
+        }
+        this.dataExporter.exportKeyframesJSON(this.keyframesData);
     }
     
     /**

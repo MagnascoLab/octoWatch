@@ -254,6 +254,26 @@ export class DataExporter {
     }
     
     /**
+     * Export keyframes data as JSON
+     * @param {Object} keyframesData - Raw keyframes data from the loaded file
+     */
+    exportKeyframesJSON(keyframesData) {
+        if (!keyframesData) {
+            console.error('No keyframes data available to export');
+            return;
+        }
+        
+        const exportData = {
+            export_date: new Date().toISOString(),
+            export_source: 'OctoWatch',
+            ...keyframesData
+        };
+        
+        const filename = `${this.baseFilename}_keyframes.json`;
+        this.downloadJSON(exportData, filename);
+    }
+    
+    /**
      * Export all data as combined JSON
      * @param {Object} allData - Object containing all analysis data
      * @param {string} side - Which side to export

@@ -69,6 +69,7 @@ export class UIManager {
             exportProximityJSON: document.getElementById('exportProximityJSON'),
             exportProximityCSV: document.getElementById('exportProximityCSV'),
             exportAllJSON: document.getElementById('exportAllJSON'),
+            exportKeyframesJSON: document.getElementById('exportKeyframesJSON'),
             
             // Sensitivity controls
             activitySensitivitySlider: document.getElementById('activitySensitivitySlider'),
@@ -350,6 +351,11 @@ export class UIManager {
         
         this.elements.exportAllJSON.addEventListener('click', () => {
             this.eventBus.emit(Events.EXPORT_ALL_JSON);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportKeyframesJSON.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_KEYFRAMES_JSON);
             this.hideExportMenu();
         });
         
