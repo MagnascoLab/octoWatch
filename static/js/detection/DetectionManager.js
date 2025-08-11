@@ -27,6 +27,8 @@ export class DetectionManager {
         this.cancelBtn = document.getElementById('cancelDetectionBtn');
         this.runDetectionBtn = document.getElementById('runDetectionBtn');
         this.codeStatus = document.getElementById('codeStatus');
+        this.detectionOptions = document.getElementById('detectionOptions');
+        this.mirrorVideoCheckbox = document.getElementById('mirrorVideoCheckbox');
         
         this.setupEventListeners();
         this.setupEventHandlers();
@@ -37,7 +39,12 @@ export class DetectionManager {
         this.runDetectionBtn.addEventListener('click', () => {
             const code = document.getElementById('codeInput').value;
             if (code) {
-                this.startDetection(code);
+                const params = {};
+                // Check if mirror video checkbox is checked
+                if (this.mirrorVideoCheckbox && this.mirrorVideoCheckbox.checked) {
+                    params.is_mirror = true;
+                }
+                this.startDetection(code, params);
             }
         });
     }
@@ -60,11 +67,27 @@ export class DetectionManager {
                     this.codeStatus.className = 'code-status info';
                     this.runDetectionBtn.style.display = 'inline-block';
                     this.runDetectionBtn.innerHTML = 'Run Detection';
+                    // Show detection options
+                    if (this.detectionOptions) {
+                        this.detectionOptions.style.display = 'block';
+                    }
+                    // For new videos (no keyframes), always uncheck mirror checkbox
+                    if (this.mirrorVideoCheckbox) {
+                        this.mirrorVideoCheckbox.checked = false;
+                    }
                 } else if (data.has_video && data.has_keyframes) {
                     this.codeStatus.textContent = 'Video and keyframes found';
                     this.codeStatus.className = 'code-status success';
                     this.runDetectionBtn.style.display = 'inline-block';
                     this.runDetectionBtn.innerHTML = 'Re-run Detection';
+                    // Show detection options
+                    if (this.detectionOptions) {
+                        this.detectionOptions.style.display = 'block';
+                    }
+                    // For existing videos, set checkbox based on is_mirror flag
+                    if (this.mirrorVideoCheckbox) {
+                        this.mirrorVideoCheckbox.checked = data.is_mirror || false;
+                    }
                     if (explicit) {
                         // If user explicitly submitted, load the video
                         this.eventBus.emit('ui:quickLoad', { code });
@@ -73,6 +96,10 @@ export class DetectionManager {
                     this.codeStatus.textContent = 'Video not found';
                     this.codeStatus.className = 'code-status error';
                     this.runDetectionBtn.style.display = 'none';
+                    // Hide detection options
+                    if (this.detectionOptions) {
+                        this.detectionOptions.style.display = 'none';
+                    }
                 }
             }
         } catch (error) {

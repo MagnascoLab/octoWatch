@@ -175,9 +175,23 @@ def check_keyframes(code):
     has_video = video_path_lower.exists() or video_path_upper.exists()
     has_keyframes = keyframes_path.exists()
     
+    # Check if existing keyframes have is_mirror flag
+    is_mirror = False
+    if has_keyframes:
+        try:
+            with open(keyframes_path, 'r') as f:
+                keyframes_data = json.load(f)
+                # Check if detection_params has is_mirror flag
+                if 'detection_params' in keyframes_data:
+                    is_mirror = keyframes_data['detection_params'].get('is_mirror', False)
+        except (json.JSONDecodeError, IOError):
+            # If we can't read the file, default to False
+            pass
+    
     return jsonify({
         'has_video': has_video,
-        'has_keyframes': has_keyframes
+        'has_keyframes': has_keyframes,
+        'is_mirror': is_mirror
     })
 
 @app.route('/start-detection/<code>', methods=['POST'])

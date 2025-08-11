@@ -63,6 +63,10 @@ class DetectionManager:
                 '--progress-json'  # New flag for JSON progress output
             ]
             
+            # Add mirror flag if specified
+            if params.get('is_mirror'):
+                cmd.append('--mirror')
+            
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,

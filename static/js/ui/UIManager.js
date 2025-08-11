@@ -753,6 +753,18 @@ export class UIManager {
                 runDetectionBtn.style.display = 'inline-block';
             }
             
+            // Show detection options (including Mirror Video checkbox)
+            const detectionOptions = document.getElementById('detectionOptions');
+            if (detectionOptions) {
+                detectionOptions.style.display = 'block';
+            }
+            
+            // For new uploads, always uncheck mirror checkbox
+            const mirrorVideoCheckbox = document.getElementById('mirrorVideoCheckbox');
+            if (mirrorVideoCheckbox) {
+                mirrorVideoCheckbox.checked = false;
+            }
+            
             // Hide after 5 seconds
             setTimeout(() => {
                 statusEl.style.display = 'none';

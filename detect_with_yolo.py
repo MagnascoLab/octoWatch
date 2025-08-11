@@ -344,7 +344,8 @@ def process_tank_half_batch(model, frames: List[np.ndarray], tank_bbox: Dict, si
 
 def process_batch_and_store_results(model, batch_frames: List[np.ndarray], batch_frame_numbers: List[int],
                                    tank_bbox: Dict, conf_threshold: float, keyframe_data: Dict,
-                                   fps: float, start_time: float, total_frames: int, max_frames: int) -> Tuple[int, int]:
+                                   fps: float, start_time: float, total_frames: int, max_frames: int,
+                                   is_mirror: bool = False) -> Tuple[int, int]:
     """
     Process a batch of frames and store the results in keyframe_data.
     
@@ -363,9 +364,15 @@ def process_batch_and_store_results(model, batch_frames: List[np.ndarray], batch
     Returns:
         Tuple of (left_detections_count, right_detections_count) for this batch
     """
-    # Process both tank halves for the batch
-    left_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'left', conf_threshold)
-    right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
+    # Process tank halves based on mirror mode
+    if is_mirror:
+        # Mirror mode: only process right side, left is empty
+        left_batch_detections = [[] for _ in batch_frame_numbers]
+        right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
+    else:
+        # Normal mode: process both tank halves
+        left_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'left', conf_threshold)
+        right_batch_detections = process_tank_half_batch(model, batch_frames, tank_bbox, 'right', conf_threshold)
     
     total_left = 0
     total_right = 0
@@ -416,7 +423,8 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
                             duration: float = 60, hertz: float = 2,
                             conf_threshold: float = 0.25, device: str = None,
                             moondream_device: str = None, scale: float = 0.5,
-                            batch_size: int = 4, preprocess: bool = True) -> Dict:
+                            batch_size: int = 4, preprocess: bool = True,
+                            is_mirror: bool = False) -> Dict:
     """
     Run YOLO detection on video, processing tank halves separately with batch processing.
     
@@ -432,6 +440,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
         scale: Scale factor for moondream processing
         batch_size: Number of frames to process in parallel (default: 4)
         preprocess: Whether to preprocess keyframes to remove extra detections (default: True)
+        is_mirror: Mirror mode - only detect on right side (default: False)
     
     Returns:
         Dictionary with keyframe detections
@@ -471,7 +480,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             'y_min': y_min,
             'x_max': x_max,
             'y_max': y_max,
-            'center_x': (x_min + x_max) // 2
+            'center_x': x_min if is_mirror else (x_min + x_max) // 2
         }
         
         # Clean up moondream model
@@ -530,7 +539,8 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             'max_duration': duration,
             'model': model_path,
             'confidence_threshold': conf_threshold,
-            'batch_size': batch_size
+            'batch_size': batch_size,
+            'is_mirror': is_mirror
         },
         'keyframes': {}
     }
@@ -545,6 +555,8 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
     batch_frame_numbers = []
     
     print(f"\nProcessing video with batch size: {batch_size}...")
+    if is_mirror:
+        print("Mirror mode enabled - only detecting on right side")
     emit_progress({
         'type': 'progress',
         'stage': 'frame_processing',
@@ -568,7 +580,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
                 # Process the batch and store results
                 batch_left, batch_right = process_batch_and_store_results(
                     model, batch_frames, batch_frame_numbers, tank_bbox, conf_threshold,
-                    keyframe_data, fps, start_time, total_frames, max_frames
+                    keyframe_data, fps, start_time, total_frames, max_frames, is_mirror
                 )
                 
                 # Update totals
@@ -586,7 +598,7 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
         # Process the batch and store results
         batch_left, batch_right = process_batch_and_store_results(
             model, batch_frames, batch_frame_numbers, tank_bbox, conf_threshold,
-            keyframe_data, fps, start_time, total_frames, max_frames
+            keyframe_data, fps, start_time, total_frames, max_frames, is_mirror
         )
         
         # Update totals
@@ -664,6 +676,8 @@ def main():
                         help='Disable preprocessing of keyframes to remove extra detections')
     parser.add_argument('--progress-json', action='store_true',
                         help='Output progress updates as JSON (for web interface)')
+    parser.add_argument('--mirror', action='store_true',
+                        help='Mirror video mode - only detect on right side (left side covered by tarp)')
     
     args = parser.parse_args()
     
@@ -684,7 +698,7 @@ def main():
             'y_min': y_min,
             'x_max': x_max,
             'y_max': y_max,
-            'center_x': (x_min + x_max) // 2
+            'center_x': x_min if args.mirror else (x_min + x_max) // 2
         }
         print(f"Using provided tank bounding box: ({x_min}, {y_min}, {x_max}, {y_max})")
     elif args.tank_keyframes:
@@ -720,7 +734,8 @@ def main():
         moondream_device=args.moondream_device,
         scale=args.scale,
         batch_size=args.batch_size,
-        preprocess=not args.no_preprocess
+        preprocess=not args.no_preprocess,
+        is_mirror=args.mirror
     )
     
     # Determine output filename
