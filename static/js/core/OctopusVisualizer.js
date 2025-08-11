@@ -247,6 +247,10 @@ export class OctopusVisualizer {
             this.exportKeyframesData();
         });
         
+        this.eventBus.on(Events.EXPORT_ZONE_INFO_CSV, () => {
+            this.exportZoneInfoCSV();
+        });
+        
         // Bounding box editing events
         this.eventBus.on('ui:toggleBboxEdit', () => {
             this.toggleBboxEditMode();
@@ -958,6 +962,25 @@ export class OctopusVisualizer {
             return;
         }
         this.dataExporter.exportKeyframesJSON(this.keyframesData);
+    }
+    
+    /**
+     * Export zone info as CSV
+     */
+    exportZoneInfoCSV() {
+        if (!this.zoneAnalyzer) {
+            console.error('Zone analyzer not initialized');
+            return;
+        }
+        
+        // Calculate zone occupancy if not already done
+        try {
+            const zoneData = this.zoneAnalyzer.calculateZoneOccupancy();
+            this.dataExporter.exportZoneInfoCSV(zoneData);
+        } catch (error) {
+            console.error('Failed to export zone info:', error);
+            this.uiManager.showError('Failed to export zone info');
+        }
     }
     
     /**

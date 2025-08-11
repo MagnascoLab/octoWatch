@@ -307,6 +307,41 @@ export class DataExporter {
     }
     
     /**
+     * Export zone info as simple CSV
+     * @param {Object} zoneData - Zone data from ZoneAnalyzer
+     */
+    exportZoneInfoCSV(zoneData) {
+        if (!zoneData || !zoneData.left || !zoneData.right) {
+            console.error('No zone data available to export');
+            return;
+        }
+        
+        // Create CSV header
+        let csv = 'Side,D,MP,H1,H2,T,B\n';
+        
+        // Add left side data
+        csv += 'Left,';
+        csv += `${zoneData.left.percentages.D.toFixed(2)},`;
+        csv += `${zoneData.left.percentages.MP.toFixed(2)},`;
+        csv += `${zoneData.left.percentages.H1.toFixed(2)},`;
+        csv += `${zoneData.left.percentages.H2.toFixed(2)},`;
+        csv += `${zoneData.left.percentages.T.toFixed(2)},`;
+        csv += `${zoneData.left.percentages.B.toFixed(2)}\n`;
+        
+        // Add right side data
+        csv += 'Right,';
+        csv += `${zoneData.right.percentages.D.toFixed(2)},`;
+        csv += `${zoneData.right.percentages.MP.toFixed(2)},`;
+        csv += `${zoneData.right.percentages.H1.toFixed(2)},`;
+        csv += `${zoneData.right.percentages.H2.toFixed(2)},`;
+        csv += `${zoneData.right.percentages.T.toFixed(2)},`;
+        csv += `${zoneData.right.percentages.B.toFixed(2)}`;
+        
+        const filename = this.generateFilename(`${this.baseFilename}_zone_info`, 'csv');
+        this.downloadCSV(csv, filename);
+    }
+    
+    /**
      * Export zone analysis data as JSON
      * @param {Object} zoneData - Zone data from ZoneAnalyzer
      * @param {Object} videoInfo - Video information

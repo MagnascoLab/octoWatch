@@ -70,6 +70,7 @@ export class UIManager {
             exportProximityCSV: document.getElementById('exportProximityCSV'),
             exportAllJSON: document.getElementById('exportAllJSON'),
             exportKeyframesJSON: document.getElementById('exportKeyframesJSON'),
+            exportZoneInfoCSV: document.getElementById('exportZoneInfoCSV'),
             
             // Export settings
             exportPostfix: document.getElementById('exportPostfix'),
@@ -390,6 +391,11 @@ export class UIManager {
         
         this.elements.exportKeyframesJSON.addEventListener('click', () => {
             this.eventBus.emit(Events.EXPORT_KEYFRAMES_JSON);
+            this.hideExportMenu();
+        });
+        
+        this.elements.exportZoneInfoCSV.addEventListener('click', () => {
+            this.eventBus.emit(Events.EXPORT_ZONE_INFO_CSV);
             this.hideExportMenu();
         });
         

@@ -334,6 +334,7 @@ export class WebGLRenderer {
         // Zone boundary color (semi-transparent gray)
         const zoneColor = [0.5, 0.5, 0.5, 0.5];
         const labelColor = [0.3, 0.3, 0.3, 0.8];
+        const mpZoneColor = [0.8, 0.5, 0.2, 0.5]; // Orange color for MP zones
         
         // Draw horizontal center line (for T/B zones)
         this.drawLine(tankLeft, tankCenterY, tankRight, tankCenterY, zoneColor);
@@ -351,6 +352,19 @@ export class WebGLRenderer {
         
         // Draw right side vertical zone line
         this.drawLine(rightMidpoint, tankTop, rightMidpoint, tankBottom, zoneColor);
+        
+        // Draw Mirror Partition (MP) zones - 1/12 of half-tank width from center
+        const mpThreshold = 1/12;
+        const leftHalfWidth = tankCenterX - tankLeft;
+        const rightHalfWidth = tankRight - tankCenterX;
+        
+        // Left MP zone boundary (closer to mirror)
+        const leftMPBoundary = tankCenterX - (mpThreshold * leftHalfWidth);
+        this.drawLine(leftMPBoundary, tankTop, leftMPBoundary, tankBottom, mpZoneColor);
+        
+        // Right MP zone boundary (closer to mirror)
+        const rightMPBoundary = tankCenterX + (mpThreshold * rightHalfWidth);
+        this.drawLine(rightMPBoundary, tankTop, rightMPBoundary, tankBottom, mpZoneColor);
         
         // Draw thicker lines for tank boundaries and center partition
         const thickColor = [0.3, 0.3, 0.3, 0.7];

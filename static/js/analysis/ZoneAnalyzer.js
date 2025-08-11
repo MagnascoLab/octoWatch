@@ -152,7 +152,7 @@ export class ZoneAnalyzer {
             return zoneFractions;
         }
         
-        // Calculate centroid for MP zone
+        // Calculate centroid for other purposes
         const centroid = {
             x: (bbox.x_min + bbox.x_max) / 2,
             y: (bbox.y_min + bbox.y_max) / 2
@@ -171,12 +171,14 @@ export class ZoneAnalyzer {
         // Calculate half-tank width for the appropriate side
         const halfTankWidth = Math.max(tankRight - tankCenterX, tankCenterX - tankLeft);
         
-        // Check MP (Mirror Partition) zone - still binary based on centroid
+        // Check MP (Mirror Partition) zone - use closest edge to mirror
         let distanceFromMirror;
         if (side === 'left') {
-            distanceFromMirror = Math.abs(tankCenterX - centroid.x);
+            // For left octopus, use the right edge (x_max) which is closer to mirror
+            distanceFromMirror = Math.abs(tankCenterX - bbox.x_max);
         } else {
-            distanceFromMirror = Math.abs(centroid.x - tankCenterX);
+            // For right octopus, use the left edge (x_min) which is closer to mirror
+            distanceFromMirror = Math.abs(bbox.x_min - tankCenterX);
         }
         
         if (distanceFromMirror < (this.mpThreshold * halfTankWidth)) {
