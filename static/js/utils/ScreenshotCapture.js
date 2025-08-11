@@ -72,6 +72,9 @@ export class ScreenshotCapture {
         // Extract base name without extension
         const baseName = videoFilename ? videoFilename.replace(/\.[^/.]+$/, '') : 'octopus_video';
         
+        // Get export postfix from localStorage
+        const postfix = localStorage.getItem('exportPostfix') || '';
+        
         // Create timestamp
         const now = new Date();
         const timestamp = now.getFullYear() +
@@ -81,7 +84,10 @@ export class ScreenshotCapture {
             String(now.getMinutes()).padStart(2, '0') +
             String(now.getSeconds()).padStart(2, '0');
         
-        // Construct filename
+        // Construct filename with optional postfix
+        if (postfix) {
+            return `${baseName}_frame_${frameNumber}_${timestamp}_${postfix}.png`;
+        }
         return `${baseName}_frame_${frameNumber}_${timestamp}.png`;
     }
     

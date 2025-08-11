@@ -100,6 +100,7 @@ export const Events = {
     TRAJECTORY_CALCULATED: 'analysis:trajectoryCalculated',
     FOURIER_CALCULATED: 'analysis:fourierCalculated',
     HEATMAP_CALCULATED: 'analysis:heatmapCalculated',
+    ZONE_ANALYSIS_CALCULATED: 'analysis:zoneAnalysisCalculated',
     
     // Rendering events
     RENDER_REQUEST: 'render:request',

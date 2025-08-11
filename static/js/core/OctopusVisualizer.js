@@ -10,6 +10,7 @@ import { ProximityAnalyzer } from '../analysis/ProximityAnalyzer.js';
 import { FourierAnalyzer } from '../analysis/FourierAnalyzer.js';
 import { TrajectoryCalculator } from '../analysis/TrajectoryCalculator.js';
 import { HeatmapCalculator } from '../analysis/HeatmapCalculator.js';
+import { ZoneAnalyzer } from '../analysis/ZoneAnalyzer.js';
 import { VideoController } from '../controls/VideoController.js';
 import { DataLoader } from '../data/DataLoader.js';
 import { InterpolationEngine } from '../data/InterpolationEngine.js';
@@ -76,6 +77,7 @@ export class OctopusVisualizer {
             //this.fourierAnalyzer = new FourierAnalyzer(this.eventBus);
             this.trajectoryCalculator = new TrajectoryCalculator(this.eventBus);
             this.heatmapCalculator = new HeatmapCalculator(this.eventBus);
+            this.zoneAnalyzer = new ZoneAnalyzer(this.eventBus);
             
             // Control modules
             this.videoController = new VideoController(this.videoPlayer, this.eventBus);
@@ -302,6 +304,10 @@ export class OctopusVisualizer {
             this.heatmapCalculator.setInterpolationEngine(this.interpolationEngine);
             this.heatmapCalculator.calculateHeatmaps();
             
+            // Set interpolation engine for zone analyzer and calculate zone occupancy
+            this.zoneAnalyzer.setInterpolationEngine(this.interpolationEngine);
+            this.zoneAnalyzer.calculateZoneOccupancy();
+            
             // Check if trajectory should be calculated
             const uiState = this.uiManager.getState();
             if (uiState.showTrajectory) {
@@ -464,6 +470,12 @@ export class OctopusVisualizer {
         // Draw tank if enabled
         if (uiState.showTank) {
             this.drawTank(tankBbox, scaleX, scaleY);
+            this.performanceMonitor.incrementDrawCalls();
+        }
+        
+        // Draw zone boundaries if enabled
+        if (uiState.showZoneVisualization) {
+            this.webglRenderer.drawZoneBoundaries(tankBbox, scaleX, scaleY);
             this.performanceMonitor.incrementDrawCalls();
         }
         
@@ -743,13 +755,24 @@ export class OctopusVisualizer {
         const baseFilename = this.videoFilename ? 
             this.videoFilename.replace(/\.[^/.]+$/, '') : 'octopus';
         
+        // Get postfix from DataExporter
+        const postfix = this.dataExporter.postfix || '';
+        
+        // Generate filenames with postfix
+        const leftFilename = postfix ? 
+            `${baseFilename}_heatmap_left_${postfix}.png` : 
+            `${baseFilename}_heatmap_left.png`;
+        const rightFilename = postfix ? 
+            `${baseFilename}_heatmap_right_${postfix}.png` : 
+            `${baseFilename}_heatmap_right.png`;
+        
         // Download left heatmap
         this.renderHeatmapToCanvas(ctx, leftHeatmap, heatmapWidth, heatmapHeight);
-        this.downloadCanvas(canvas, `${baseFilename}_heatmap_left.png`);
+        this.downloadCanvas(canvas, leftFilename);
         
         // Download right heatmap
         this.renderHeatmapToCanvas(ctx, rightHeatmap, heatmapWidth, heatmapHeight);
-        this.downloadCanvas(canvas, `${baseFilename}_heatmap_right.png`);
+        this.downloadCanvas(canvas, rightFilename);
     }
     
     /**
@@ -918,7 +941,8 @@ export class OctopusVisualizer {
             heatmapData: this.heatmapCalculator.isCalculated() ? this.heatmapCalculator.getHeatmapData() : null,
             trajectoryData: this.trajectoryCalculator.isCalculated() ? this.trajectoryCalculator.getTrajectoryData() : null,
             activityData: this.activityAnalyzer.getActivityData(),
-            proximityData: this.proximityAnalyzer.getProximityData()
+            proximityData: this.proximityAnalyzer.getProximityData(),
+            keyframesData: this.keyframesData
         };
         
         const side = this.uiManager.getState().sideSelect;

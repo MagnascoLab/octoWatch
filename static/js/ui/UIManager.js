@@ -71,6 +71,9 @@ export class UIManager {
             exportAllJSON: document.getElementById('exportAllJSON'),
             exportKeyframesJSON: document.getElementById('exportKeyframesJSON'),
             
+            // Export settings
+            exportPostfix: document.getElementById('exportPostfix'),
+            
             // Sensitivity controls
             activitySensitivitySlider: document.getElementById('activitySensitivitySlider'),
             activitySensitivityValue: document.getElementById('activitySensitivityValue'),
@@ -111,6 +114,12 @@ export class UIManager {
             freqRankValue: document.getElementById('freqRankValue'),
             freqInfo: document.getElementById('freqInfo'),
             
+            // Zone analysis display
+            zoneAnalysisContainer: document.getElementById('zoneAnalysisContainer'),
+            leftZoneDisplay: document.getElementById('leftZoneDisplay'),
+            rightZoneDisplay: document.getElementById('rightZoneDisplay'),
+            toggleZoneVisualization: document.getElementById('toggleZoneVisualization'),
+            
             // Sections
             visualizerSection: document.getElementById('visualizerSection'),
             activityHeatmap: document.getElementById('activityHeatmap')
@@ -123,6 +132,7 @@ export class UIManager {
             trajectoryAlpha: DEFAULTS.TRAJECTORY_ALPHA,
             heatmapAlpha: DEFAULTS.HEATMAP_ALPHA,
             frequencyRank: DEFAULTS.FREQUENCY_RANK,
+            showZoneVisualization: false,
             deletionMode: false,
             deletionSelection: {
                 startProgress: null,
@@ -135,6 +145,9 @@ export class UIManager {
         this.keyframesData = null;
         this.videoFilename = null;
         this.visualizer = visualizer;
+        
+        // Load saved export postfix
+        this.loadExportPostfix();
         
         this.setupEventListeners();
         this.setupEventHandlers();
@@ -193,6 +206,27 @@ export class UIManager {
         this.elements.browseCodesBtn.addEventListener('click', () => {
             this.handleBrowseCodesClick();
         });
+        
+        // Zone visualization toggle
+        if (this.elements.toggleZoneVisualization) {
+            this.elements.toggleZoneVisualization.addEventListener('click', () => {
+                this.state.showZoneVisualization = !this.state.showZoneVisualization;
+                
+                // Update button text
+                this.elements.toggleZoneVisualization.textContent = 
+                    this.state.showZoneVisualization ? 'Hide Zones' : 'Show Zones';
+                
+                // Update button style
+                this.elements.toggleZoneVisualization.style.background = 
+                    this.state.showZoneVisualization ? '#28a745' : '#6c757d';
+                
+                // Emit event to trigger re-render
+                this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
+                    control: 'showZoneVisualization',
+                    value: this.state.showZoneVisualization
+                });
+            });
+        }
         
         // Video controls
         this.elements.playPauseBtn.addEventListener('click', () => {
@@ -367,6 +401,21 @@ export class UIManager {
             }
         });
         
+        // Export postfix input
+        if (this.elements.exportPostfix) {
+            this.elements.exportPostfix.addEventListener('input', (e) => {
+                // Remove non-alphanumeric characters and limit to 8 chars
+                const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+                e.target.value = value;
+                
+                // Save to localStorage and update DataExporter
+                localStorage.setItem('exportPostfix', value);
+                if (this.visualizer && this.visualizer.dataExporter) {
+                    this.visualizer.dataExporter.setExportPostfix(value);
+                }
+            });
+        }
+        
         // Trajectory alpha slider
         this.elements.trajectoryAlphaSlider.addEventListener('input', (e) => {
             this.state.trajectoryAlpha = parseFloat(e.target.value);
@@ -476,8 +525,14 @@ export class UIManager {
             const totalFrames = data.keyframesData.video_info.total_frames_processed;
             this.elements.frameSlider.max = totalFrames;
             
-            // Show export button when data is loaded
+            // Show export button and zone analysis when data is loaded
             this.elements.exportMenuBtn.style.display = 'block';
+            this.elements.zoneAnalysisContainer.style.display = 'block';
+        });
+        
+        // Listen for zone analysis completion
+        this.eventBus.on(Events.ZONE_ANALYSIS_CALCULATED, (data) => {
+            this.displayZoneAnalysis(data);
         });
         
         // Detection completed
@@ -648,6 +703,7 @@ export class UIManager {
             proximitySensitivity: this.state.proximitySensitivity,
             activityMetric: this.elements.activityMetric.value,
             proximityMetric: this.elements.proximityMetric.value,
+            showZoneVisualization: this.state.showZoneVisualization,
             //showFourierAnalysis: this.elements.fourierAnalysis.checked,
             frequencyRank: this.state.frequencyRank
         };
@@ -735,6 +791,41 @@ export class UIManager {
         this.showSuccess(message);
     }
 
+    /**
+     * Display zone analysis results
+     * @param {Object} data - Zone analysis data with left and right percentages
+     */
+    displayZoneAnalysis(data) {
+        if (!data || !data.left || !data.right) return;
+        
+        // Reordered: MP, H1, H2 in first row; D, T, B in second row
+        const zones = ['MP', 'H1', 'H2', 'D', 'T', 'B'];
+        
+        // Format and display left side zones
+        this.elements.leftZoneDisplay.innerHTML = '';
+        zones.forEach(zone => {
+            const percentage = data.left.percentages[zone];
+            if (percentage !== undefined) {
+                const zoneEl = document.createElement('div');
+                zoneEl.style.cssText = 'padding: 4px 6px; background: white; border-radius: 4px; border: 1px solid #ddd;';
+                zoneEl.innerHTML = `<strong>${zone}:</strong> ${percentage.toFixed(1)}%`;
+                this.elements.leftZoneDisplay.appendChild(zoneEl);
+            }
+        });
+        
+        // Format and display right side zones
+        this.elements.rightZoneDisplay.innerHTML = '';
+        zones.forEach(zone => {
+            const percentage = data.right.percentages[zone];
+            if (percentage !== undefined) {
+                const zoneEl = document.createElement('div');
+                zoneEl.style.cssText = 'padding: 4px 6px; background: white; border-radius: 4px; border: 1px solid #ddd;';
+                zoneEl.innerHTML = `<strong>${zone}:</strong> ${percentage.toFixed(1)}%`;
+                this.elements.rightZoneDisplay.appendChild(zoneEl);
+            }
+        });
+    }
+    
     /**
      * Show upload success message
      * @param {string} code - Assigned MVI code
@@ -1011,6 +1102,16 @@ export class UIManager {
             this.elements.deleteKeyframesBtn.disabled = false;
             this.elements.deleteKeyframesBtn.classList.remove('disabled');
             this.eventBus.emit(Events.RENDER_REQUEST);
+        }
+    }
+    
+    /**
+     * Load export postfix from localStorage
+     */
+    loadExportPostfix() {
+        const savedPostfix = localStorage.getItem('exportPostfix');
+        if (savedPostfix && this.elements.exportPostfix) {
+            this.elements.exportPostfix.value = savedPostfix;
         }
     }
     

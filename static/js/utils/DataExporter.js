@@ -11,6 +11,7 @@ export class DataExporter {
     constructor(videoFilename = null) {
         this.videoFilename = videoFilename || 'octopus_video';
         this.baseFilename = this.videoFilename.replace(/\.[^/.]+$/, '');
+        this.postfix = this.getExportPostfix();
     }
     
     /**
@@ -20,6 +21,38 @@ export class DataExporter {
     setVideoFilename(filename) {
         this.videoFilename = filename;
         this.baseFilename = filename ? filename.replace(/\.[^/.]+$/, '') : 'octopus_video';
+    }
+    
+    /**
+     * Get export postfix from localStorage
+     * @returns {string} The saved postfix or empty string
+     */
+    getExportPostfix() {
+        return localStorage.getItem('exportPostfix') || '';
+    }
+    
+    /**
+     * Set export postfix and save to localStorage
+     * @param {string} postfix - The postfix to set (max 8 alphanumeric chars)
+     */
+    setExportPostfix(postfix) {
+        // Validate: only alphanumeric, max 8 chars
+        const validated = postfix.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+        this.postfix = validated;
+        localStorage.setItem('exportPostfix', validated);
+    }
+    
+    /**
+     * Generate filename with optional postfix
+     * @param {string} baseName - Base filename without extension
+     * @param {string} extension - File extension (e.g., 'json', 'csv', 'png')
+     * @returns {string} Complete filename with postfix if set
+     */
+    generateFilename(baseName, extension) {
+        if (this.postfix) {
+            return `${baseName}_${this.postfix}.${extension}`;
+        }
+        return `${baseName}.${extension}`;
     }
     
     /**
@@ -51,7 +84,7 @@ export class DataExporter {
             };
         }
         
-        const filename = `${this.baseFilename}_heatmap_data.json`;
+        const filename = this.generateFilename(`${this.baseFilename}_heatmap_data`, 'json');
         this.downloadJSON(exportData, filename);
     }
     
@@ -90,7 +123,7 @@ export class DataExporter {
             }));
         }
         
-        const filename = `${this.baseFilename}_trajectories.json`;
+        const filename = this.generateFilename(`${this.baseFilename}_trajectories`, 'json');
         this.downloadJSON(exportData, filename);
     }
     
@@ -114,7 +147,7 @@ export class DataExporter {
             });
         }
         
-        const filename = `${this.baseFilename}_trajectories.csv`;
+        const filename = this.generateFilename(`${this.baseFilename}_trajectories`, 'csv');
         this.downloadCSV(csv, filename);
     }
     
@@ -150,7 +183,7 @@ export class DataExporter {
             exportData.analysis_settings.max_right_activity = activityData.maxRightActivity;
         }
         
-        const filename = `${this.baseFilename}_activity_analysis.json`;
+        const filename = this.generateFilename(`${this.baseFilename}_activity_analysis`, 'json');
         this.downloadJSON(exportData, filename);
     }
     
@@ -178,7 +211,7 @@ export class DataExporter {
             csv += '\n';
         }
         
-        const filename = `${this.baseFilename}_activity_analysis.csv`;
+        const filename = this.generateFilename(`${this.baseFilename}_activity_analysis`, 'csv');
         this.downloadCSV(csv, filename);
     }
     
@@ -217,7 +250,7 @@ export class DataExporter {
             };
         }
         
-        const filename = `${this.baseFilename}_proximity_analysis.json`;
+        const filename = this.generateFilename(`${this.baseFilename}_proximity_analysis`, 'json');
         this.downloadJSON(exportData, filename);
     }
     
@@ -249,7 +282,7 @@ export class DataExporter {
             csv += '\n';
         }
         
-        const filename = `${this.baseFilename}_proximity_analysis.csv`;
+        const filename = this.generateFilename(`${this.baseFilename}_proximity_analysis`, 'csv');
         this.downloadCSV(csv, filename);
     }
     
@@ -269,8 +302,58 @@ export class DataExporter {
             ...keyframesData
         };
         
-        const filename = `${this.baseFilename}_keyframes.json`;
+        const filename = this.generateFilename(`${this.baseFilename}_keyframes`, 'json');
         this.downloadJSON(exportData, filename);
+    }
+    
+    /**
+     * Export zone analysis data as JSON
+     * @param {Object} zoneData - Zone data from ZoneAnalyzer
+     * @param {Object} videoInfo - Video information
+     */
+    exportZoneAnalysisJSON(zoneData, videoInfo) {
+        const exportData = {
+            video_info: {
+                filename: this.videoFilename,
+                fps: videoInfo.fps,
+                total_frames: videoInfo.total_frames_processed
+            },
+            export_date: new Date().toISOString(),
+            zone_analysis: zoneData
+        };
+        
+        const filename = this.generateFilename(`${this.baseFilename}_zone_analysis`, 'json');
+        this.downloadJSON(exportData, filename);
+    }
+    
+    /**
+     * Export zone analysis data as CSV
+     * @param {Object} zoneData - Zone data from ZoneAnalyzer
+     * @param {Object} videoInfo - Video information
+     */
+    exportZoneAnalysisCSV(zoneData, videoInfo) {
+        const fps = videoInfo.fps;
+        let csv = 'frame,time_seconds,left_zones,right_zones\n';
+        
+        const totalFrames = zoneData.timeSeries.length;
+        for (let i = 0; i < totalFrames; i++) {
+            const frameData = zoneData.timeSeries[i];
+            csv += `${frameData.frame},${frameData.time.toFixed(2)},${frameData.left_zones},${frameData.right_zones}\n`;
+        }
+        
+        // Add summary section
+        csv += '\n\nZone Occupancy Summary (%)\n';
+        csv += 'Zone,Left Side,Right Side\n';
+        
+        const zones = ['D', 'MP', 'H1', 'H2', 'T', 'B'];
+        zones.forEach(zone => {
+            const leftPercent = zoneData.summary.left[zone].toFixed(1);
+            const rightPercent = zoneData.summary.right[zone].toFixed(1);
+            csv += `${zone},${leftPercent},${rightPercent}\n`;
+        });
+        
+        const filename = this.generateFilename(`${this.baseFilename}_zone_analysis`, 'csv');
+        this.downloadCSV(csv, filename);
     }
     
     /**
@@ -279,7 +362,7 @@ export class DataExporter {
      * @param {string} side - Which side to export
      */
     exportAllJSON(allData, side = 'both') {
-        const { heatmapData, trajectoryData, activityData, proximityData, videoInfo } = allData;
+        const { heatmapData, trajectoryData, activityData, proximityData, videoInfo, keyframesData, zoneData } = allData;
         
         const exportData = {
             video_info: {
@@ -303,15 +386,15 @@ export class DataExporter {
             
             if (side === 'left' || side === 'both') {
                 exportData.analysis_data.spatial_heatmap.left = {
-                    max_value: heatmapData.leftMaxValue,
-                    data_length: heatmapData.leftHeatmap.length
+                    data: Array.from(heatmapData.leftHeatmap),
+                    max_value: heatmapData.leftMaxValue
                 };
             }
             
             if (side === 'right' || side === 'both') {
                 exportData.analysis_data.spatial_heatmap.right = {
-                    max_value: heatmapData.rightMaxValue,
-                    data_length: heatmapData.rightHeatmap.length
+                    data: Array.from(heatmapData.rightHeatmap),
+                    max_value: heatmapData.rightMaxValue
                 };
             }
         }
@@ -321,19 +404,19 @@ export class DataExporter {
             exportData.analysis_data.trajectories = {};
             
             if ((side === 'left' || side === 'both') && trajectoryData.leftTrajectory) {
-                exportData.analysis_data.trajectories.left = {
-                    points: trajectoryData.leftTrajectory.length,
-                    first_frame: trajectoryData.leftTrajectory[0]?.frame,
-                    last_frame: trajectoryData.leftTrajectory[trajectoryData.leftTrajectory.length - 1]?.frame
-                };
+                exportData.analysis_data.trajectories.left = trajectoryData.leftTrajectory.map(point => ({
+                    frame: point.frame,
+                    x: point.x,
+                    y: point.y
+                }));
             }
             
             if ((side === 'right' || side === 'both') && trajectoryData.rightTrajectory) {
-                exportData.analysis_data.trajectories.right = {
-                    points: trajectoryData.rightTrajectory.length,
-                    first_frame: trajectoryData.rightTrajectory[0]?.frame,
-                    last_frame: trajectoryData.rightTrajectory[trajectoryData.rightTrajectory.length - 1]?.frame
-                };
+                exportData.analysis_data.trajectories.right = trajectoryData.rightTrajectory.map(point => ({
+                    frame: point.frame,
+                    x: point.x,
+                    y: point.y
+                }));
             }
         }
         
@@ -381,7 +464,17 @@ export class DataExporter {
             }
         }
         
-        const filename = `${this.baseFilename}_all_analysis_data.json`;
+        // Add keyframes data
+        if (keyframesData) {
+            exportData.keyframes = keyframesData;
+        }
+        
+        // Add zone analysis data
+        if (zoneData) {
+            exportData.analysis_data.zone_analysis = zoneData;
+        }
+        
+        const filename = this.generateFilename(`${this.baseFilename}_all_analysis_data`, 'json');
         this.downloadJSON(exportData, filename);
     }
     

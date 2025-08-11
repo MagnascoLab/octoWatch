@@ -315,6 +315,53 @@ export class WebGLRenderer {
     }
 
     /**
+     * Draw zone boundaries for H1, H2, H3 visualization
+     * @param {Object} tankBbox - Tank bounding box
+     * @param {number} scaleX - X scale factor
+     * @param {number} scaleY - Y scale factor
+     */
+    drawZoneBoundaries(tankBbox, scaleX, scaleY) {
+        const gl = this.gl;
+        
+        // Calculate tank dimensions in canvas coordinates
+        const tankLeft = tankBbox.x_min * scaleX;
+        const tankTop = tankBbox.y_min * scaleY;
+        const tankRight = tankBbox.x_max * scaleX;
+        const tankBottom = tankBbox.y_max * scaleY;
+        const tankCenterX = tankBbox.center_x * scaleX;
+        const tankCenterY = (tankTop + tankBottom) / 2;
+        
+        // Zone boundary color (semi-transparent gray)
+        const zoneColor = [0.5, 0.5, 0.5, 0.5];
+        const labelColor = [0.3, 0.3, 0.3, 0.8];
+        
+        // Draw horizontal center line (for T/B zones)
+        this.drawLine(tankLeft, tankCenterY, tankRight, tankCenterY, zoneColor);
+        
+        // Left side zone boundary (H1, H2 - halves)
+        const leftHalf = (tankCenterX - tankLeft) / 2;
+        const leftMidpoint = tankLeft + leftHalf;
+        
+        // Draw left side vertical zone line
+        this.drawLine(leftMidpoint, tankTop, leftMidpoint, tankBottom, zoneColor);
+        
+        // Right side zone boundary (H1, H2 - halves)
+        const rightHalf = (tankRight - tankCenterX) / 2;
+        const rightMidpoint = tankCenterX + rightHalf;
+        
+        // Draw right side vertical zone line
+        this.drawLine(rightMidpoint, tankTop, rightMidpoint, tankBottom, zoneColor);
+        
+        // Draw thicker lines for tank boundaries and center partition
+        const thickColor = [0.3, 0.3, 0.3, 0.7];
+        
+        // Draw center partition with thicker line
+        gl.lineWidth(2.0);
+        this.drawLine(tankCenterX, tankTop, tankCenterX, tankBottom, thickColor);
+        gl.lineWidth(1.0);
+    }
+    
+    /**
      * Draw a circle as triangles
      * @param {number} x - Center X coordinate
      * @param {number} y - Center Y coordinate

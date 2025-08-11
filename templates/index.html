@@ -26,6 +26,8 @@
                             <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
                             <button type="submit">Load by Code</button>
                             <button type="button" id="runDetectionBtn" style="display: none;">Run Detection</button>
+                            <button type="button" id="importKeyframesBtn" style="display: none;">Import Keyframes</button>
+                            <input type="file" id="keyframesFileInput" accept=".json" style="display: none;">
                             <br>
                             <div id="detectionOptions" style="display: none; margin-top: 10px;">
                                 <label style="font-size: 14px;">
@@ -176,6 +178,40 @@
                         </div>
                     </fieldset>
                 </div>
+                
+                <!-- Zone Analysis Display (moved to right side) -->
+                <div id="zoneAnalysisContainer" style="display: none; position: fixed; top: 90px; right: 10px; width: 280px; background: rgba(248, 249, 250, 0.95); padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 14px; color: #333;">Zone Occupancy (%)</h4>
+                        <button id="toggleZoneVisualization" style="padding: 4px 8px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Show Zones</button>
+                    </div>
+                    
+                    <!-- Left Side Zone Data -->
+                    <div style="margin-bottom: 12px;">
+                        <h5 style="margin: 0 0 8px 0; font-size: 12px; color: #dc3545; font-weight: 600;">Left Side</h5>
+                        <div id="leftZoneDisplay" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
+                            <!-- Zone percentages will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Right Side Zone Data -->
+                    <div>
+                        <h5 style="margin: 0 0 8px 0; font-size: 12px; color: #007bff; font-weight: 600;">Right Side</h5>
+                        <div id="rightZoneDisplay" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
+                            <!-- Zone percentages will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Zone Legend -->
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dee2e6; font-size: 10px; color: #666;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;">
+                            <div><strong>D:</strong> Den (no detection)</div>
+                            <div><strong>MP:</strong> Mirror partition</div>
+                            <div><strong>H1/H2:</strong> Near/Far from mirror</div>
+                            <div><strong>T/B:</strong> Top/Bottom half</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
 
@@ -278,6 +314,18 @@
                     
                     <!-- Export Menu Dropdown -->
                     <div id="exportMenu" class="export-menu" style="display: none;">
+                        <div class="export-section export-settings">
+                            <h4>Export Settings</h4>
+                            <div class="export-postfix-container">
+                                <label for="exportPostfix">Filename Postfix:</label>
+                                <input type="text" id="exportPostfix" maxlength="8" pattern="[a-zA-Z0-9]*" placeholder="optional" title="Up to 8 alphanumeric characters">
+                                <span class="postfix-hint">Added to all exported files</span>
+                            </div>
+                        </div>
+                        <div class="export-section">
+                            <h4>Keyframes</h4>
+                            <button id="exportKeyframesJSON" class="export-btn">Export Keyframes as JSON</button>
+                        </div>
                         <div class="export-section">
                             <h4>Spatial Heatmaps</h4>
                             <button id="exportHeatmapImages" class="export-btn">Export as Images (PNG)</button>
@@ -305,11 +353,6 @@
                         <div class="export-section">
                             <h4>Combined Data</h4>
                             <button id="exportAllJSON" class="export-btn">Export All as JSON</button>
-                        </div>
-                        
-                        <div class="export-section">
-                            <h4>Keyframes</h4>
-                            <button id="exportKeyframesJSON" class="export-btn">Export Keyframes as JSON</button>
                         </div>
                     </div>
                 </div>
@@ -360,6 +403,7 @@
                         <input type="checkbox" id="fourierAnalysis"> Show Fourier Analysis
                     </label>
                 </div>-->
+                
                 <button id="exportMenuBtn" style="display: none; margin-top: 5px;">Export Data ↓</button>
                
             </div>

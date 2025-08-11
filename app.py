@@ -10,6 +10,32 @@ import sys
 from detection_manager import detection_manager
 import re
 
+# Store mapping of MVI codes to original uploaded filenames
+VIDEO_UPLOAD_MAPPING = {}
+MAPPING_FILE = Path('videos_keyframes/upload_mapping.json')
+
+def load_upload_mapping():
+    """Load the upload mapping from persistent storage"""
+    global VIDEO_UPLOAD_MAPPING
+    if MAPPING_FILE.exists():
+        try:
+            with open(MAPPING_FILE, 'r') as f:
+                VIDEO_UPLOAD_MAPPING = json.load(f)
+        except Exception as e:
+            print(f"Error loading upload mapping: {e}")
+            VIDEO_UPLOAD_MAPPING = {}
+    else:
+        VIDEO_UPLOAD_MAPPING = {}
+
+def save_upload_mapping():
+    """Save the upload mapping to persistent storage"""
+    try:
+        MAPPING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(MAPPING_FILE, 'w') as f:
+            json.dump(VIDEO_UPLOAD_MAPPING, f, indent=2)
+    except Exception as e:
+        print(f"Error saving upload mapping: {e}")
+
 def calculate_iou(box1, box2):
     """Calculate Intersection over Union between two bounding boxes"""
     if not box1 or not box2:
@@ -45,6 +71,9 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('videos', exist_ok=True)
 os.makedirs('videos_keyframes', exist_ok=True)
+
+# Load the upload mapping on startup
+load_upload_mapping()
 
 @app.route('/')
 def index():
@@ -105,9 +134,18 @@ def upload_video():
     
     video_file.save(str(video_path))
     
+    # Store the mapping of MVI code to original filename
+    VIDEO_UPLOAD_MAPPING[code] = {
+        'original_filename': video_file.filename,
+        'uploaded_filename': video_filename,
+        'upload_timestamp': time.time()
+    }
+    save_upload_mapping()
+    
     return jsonify({
         'code': code,
         'video_filename': video_filename,
+        'original_filename': video_file.filename,
         'message': f'Video uploaded successfully with code {code}. You can now run detection.'
     })
 @app.route('/uploads/<filename>')
@@ -741,6 +779,121 @@ def restore_backup(code):
     except Exception as e:
         return jsonify({'error': f'Failed to restore backup: {str(e)}'}), 500
 
+@app.route('/get-upload-mapping/<code>')
+def get_upload_mapping(code):
+    """Get the original upload information for a specific MVI code"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    # Check if mapping exists for this code
+    if code in VIDEO_UPLOAD_MAPPING:
+        return jsonify({
+            'code': code,
+            'mapping': VIDEO_UPLOAD_MAPPING[code]
+        })
+    else:
+        return jsonify({
+            'code': code,
+            'mapping': None,
+            'message': 'No upload mapping found for this code'
+        })
+
+@app.route('/get-all-upload-mappings')
+def get_all_upload_mappings():
+    """Get all upload mappings for export purposes"""
+    return jsonify({
+        'mappings': VIDEO_UPLOAD_MAPPING,
+        'total_count': len(VIDEO_UPLOAD_MAPPING)
+    })
+
+@app.route('/import-keyframes/<code>', methods=['POST'])
+def import_keyframes(code):
+    """Import keyframes JSON file for a specific video code"""
+    # Validate code format (4 digits)
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format'}), 400
+    
+    # Check if video exists
+    videos_dir = Path('videos')
+    video_path_lower = videos_dir / f'MVI_{code}_proxy.mp4'
+    video_path_upper = videos_dir / f'MVI_{code}_proxy.MP4'
+    
+    if not (video_path_lower.exists() or video_path_upper.exists()):
+        return jsonify({'error': f'Video not found for code {code}'}), 404
+    
+    # Check if keyframes file was uploaded
+    if 'keyframes' not in request.files:
+        return jsonify({'error': 'No keyframes file provided'}), 400
+    
+    keyframes_file = request.files['keyframes']
+    
+    if keyframes_file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Validate it's a JSON file
+    if not keyframes_file.filename.lower().endswith('.json'):
+        return jsonify({'error': 'File must be a JSON file'}), 400
+    
+    try:
+        # Read and parse the uploaded JSON
+        keyframes_content = keyframes_file.read()
+        keyframes_data = json.loads(keyframes_content)
+        
+        # Validate basic structure
+        if 'keyframes' not in keyframes_data:
+            return jsonify({'error': 'Invalid keyframes format: missing "keyframes" field'}), 400
+        
+        # Validate that keyframes is a dict
+        if not isinstance(keyframes_data['keyframes'], dict):
+            return jsonify({'error': 'Invalid keyframes format: "keyframes" must be an object'}), 400
+        
+        # Path for the keyframes file
+        keyframes_dir = Path('videos_keyframes')
+        keyframes_path = keyframes_dir / f'MVI_{code}_keyframes.json'
+        
+        # Create backup if existing keyframes exist
+        backup_path = None
+        if keyframes_path.exists():
+            from datetime import datetime
+            backup_path = keyframes_path.with_suffix(
+                f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            )
+            import shutil
+            shutil.copy2(keyframes_path, backup_path)
+        
+        # Save the new keyframes
+        with open(keyframes_path, 'w') as f:
+            json.dump(keyframes_data, f, indent=2)
+        
+        # Count some statistics
+        total_frames = len(keyframes_data['keyframes'])
+        frames_with_left = sum(1 for frame in keyframes_data['keyframes'].values() 
+                               if frame.get('has_left_octopus', False))
+        frames_with_right = sum(1 for frame in keyframes_data['keyframes'].values() 
+                                if frame.get('has_right_octopus', False))
+        
+        response = {
+            'success': True,
+            'message': f'Successfully imported keyframes for MVI_{code}',
+            'total_frames': total_frames,
+            'frames_with_left': frames_with_left,
+            'frames_with_right': frames_with_right
+        }
+        
+        if backup_path:
+            response['backup_created'] = backup_path.name
+            response['replaced_existing'] = True
+        else:
+            response['replaced_existing'] = False
+        
+        return jsonify(response)
+        
+    except json.JSONDecodeError as e:
+        return jsonify({'error': f'Invalid JSON file: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to import keyframes: {str(e)}'}), 500
+
 @app.route('/delete-video/<code>', methods=['DELETE'])
 def delete_video(code):
     """Delete video and associated keyframes by code"""
@@ -771,6 +924,11 @@ def delete_video(code):
         # Delete keyframes if exists
         if keyframes_existed:
             keyframes_path.unlink()
+        
+        # Remove from upload mapping
+        if code in VIDEO_UPLOAD_MAPPING:
+            del VIDEO_UPLOAD_MAPPING[code]
+            save_upload_mapping()
         
         return jsonify({
             'success': True,

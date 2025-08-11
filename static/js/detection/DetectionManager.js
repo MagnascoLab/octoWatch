@@ -26,6 +26,8 @@ export class DetectionManager {
         this.rightDetections = document.getElementById('rightDetections');
         this.cancelBtn = document.getElementById('cancelDetectionBtn');
         this.runDetectionBtn = document.getElementById('runDetectionBtn');
+        this.importKeyframesBtn = document.getElementById('importKeyframesBtn');
+        this.keyframesFileInput = document.getElementById('keyframesFileInput');
         this.codeStatus = document.getElementById('codeStatus');
         this.detectionOptions = document.getElementById('detectionOptions');
         this.mirrorVideoCheckbox = document.getElementById('mirrorVideoCheckbox');
@@ -47,6 +49,21 @@ export class DetectionManager {
                 this.startDetection(code, params);
             }
         });
+        
+        // Import keyframes button
+        this.importKeyframesBtn.addEventListener('click', () => {
+            this.keyframesFileInput.click();
+        });
+        
+        // Handle keyframes file selection
+        this.keyframesFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.importKeyframes(file);
+            }
+            // Reset the input so the same file can be selected again
+            e.target.value = '';
+        });
     }
     
     setupEventHandlers() {
@@ -67,6 +84,7 @@ export class DetectionManager {
                     this.codeStatus.className = 'code-status info';
                     this.runDetectionBtn.style.display = 'inline-block';
                     this.runDetectionBtn.innerHTML = 'Run Detection';
+                    this.importKeyframesBtn.style.display = 'inline-block';
                     // Show detection options
                     if (this.detectionOptions) {
                         this.detectionOptions.style.display = 'block';
@@ -80,6 +98,7 @@ export class DetectionManager {
                     this.codeStatus.className = 'code-status success';
                     this.runDetectionBtn.style.display = 'inline-block';
                     this.runDetectionBtn.innerHTML = 'Re-run Detection';
+                    this.importKeyframesBtn.style.display = 'inline-block';
                     // Show detection options
                     if (this.detectionOptions) {
                         this.detectionOptions.style.display = 'block';
@@ -96,6 +115,7 @@ export class DetectionManager {
                     this.codeStatus.textContent = 'Video not found';
                     this.codeStatus.className = 'code-status error';
                     this.runDetectionBtn.style.display = 'none';
+                    this.importKeyframesBtn.style.display = 'none';
                     // Hide detection options
                     if (this.detectionOptions) {
                         this.detectionOptions.style.display = 'none';
@@ -104,6 +124,92 @@ export class DetectionManager {
             }
         } catch (error) {
             console.error('Error checking code:', error);
+        }
+    }
+    
+    async importKeyframes(file) {
+        const code = document.getElementById('codeInput').value;
+        if (!code) {
+            Swal.fire({
+                icon: 'error',
+                title: 'No video selected',
+                text: 'Please enter a video code first',
+                confirmButtonColor: '#007bff'
+            });
+            return;
+        }
+        
+        // Validate file type
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid file type',
+                text: 'Please select a JSON file',
+                confirmButtonColor: '#007bff'
+            });
+            return;
+        }
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('keyframes', file);
+        
+        try {
+            // Show loading
+            Swal.fire({
+                title: 'Importing Keyframes',
+                text: 'Please wait...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            const response = await fetch(`/import-keyframes/${code}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Show success message with details
+                let message = `Successfully imported ${data.total_frames} keyframes`;
+                if (data.frames_with_left > 0 || data.frames_with_right > 0) {
+                    message += `\n\nDetections found:\n`;
+                    message += `• Left side: ${data.frames_with_left} frames\n`;
+                    message += `• Right side: ${data.frames_with_right} frames`;
+                }
+                if (data.replaced_existing) {
+                    message += `\n\nBackup created: ${data.backup_created}`;
+                }
+                
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Import Successful',
+                    text: message,
+                    confirmButtonColor: '#28a745'
+                });
+                
+                // Automatically load the video with the imported keyframes
+                this.eventBus.emit('ui:quickLoad', { code });
+            } else {
+                // Show error
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Import Failed',
+                    text: data.error || 'Failed to import keyframes',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+        } catch (error) {
+            console.error('Error importing keyframes:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Import Error',
+                text: 'An error occurred while importing keyframes',
+                confirmButtonColor: '#dc3545'
+            });
         }
     }
     
