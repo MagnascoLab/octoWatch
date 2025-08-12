@@ -424,7 +424,8 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
                             conf_threshold: float = 0.25, device: str = None,
                             moondream_device: str = None, scale: float = 0.5,
                             batch_size: int = 4, preprocess: bool = True,
-                            is_mirror: bool = False) -> Dict:
+                            is_mirror: bool = False, is_social: bool = False, 
+                            is_control: bool = False) -> Dict:
     """
     Run YOLO detection on video, processing tank halves separately with batch processing.
     
@@ -441,6 +442,8 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
         batch_size: Number of frames to process in parallel (default: 4)
         preprocess: Whether to preprocess keyframes to remove extra detections (default: True)
         is_mirror: Mirror mode - only detect on right side (default: False)
+        is_social: Social experiment mode (cosmetic flag, default: False)
+        is_control: Control experiment mode (cosmetic flag, default: False)
     
     Returns:
         Dictionary with keyframe detections
@@ -540,7 +543,9 @@ def detect_octopus_in_video(video_path: str, model_path: str, tank_bbox: Dict = 
             'model': model_path,
             'confidence_threshold': conf_threshold,
             'batch_size': batch_size,
-            'is_mirror': is_mirror
+            'is_mirror': is_mirror,
+            'is_social': is_social,
+            'is_control': is_control
         },
         'keyframes': {}
     }
@@ -678,6 +683,10 @@ def main():
                         help='Output progress updates as JSON (for web interface)')
     parser.add_argument('--mirror', action='store_true',
                         help='Mirror video mode - only detect on right side (left side covered by tarp)')
+    parser.add_argument('--social', action='store_true',
+                        help='Social experiment mode (cosmetic flag for categorization)')
+    parser.add_argument('--control', action='store_true',
+                        help='Control experiment mode (cosmetic flag for categorization)')
     
     args = parser.parse_args()
     
@@ -735,7 +744,9 @@ def main():
         scale=args.scale,
         batch_size=args.batch_size,
         preprocess=not args.no_preprocess,
-        is_mirror=args.mirror
+        is_mirror=args.mirror,
+        is_social=args.social,
+        is_control=args.control
     )
     
     # Determine output filename

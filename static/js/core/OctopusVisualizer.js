@@ -88,7 +88,7 @@ export class OctopusVisualizer {
             this.uiManager = new UIManager(this.eventBus, this);
             
             // Detection module
-            this.detectionManager = new DetectionManager(this.eventBus);
+            this.detectionManager = new DetectionManager(this.eventBus, this.uiManager);
             
             // Screenshot utility
             this.screenshotCapture = new ScreenshotCapture();

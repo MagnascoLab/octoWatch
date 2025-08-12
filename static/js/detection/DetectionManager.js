@@ -8,8 +8,9 @@ export class DetectionManager {
      * Create a DetectionManager
      * @param {EventBus} eventBus - Central event system
      */
-    constructor(eventBus) {
+    constructor(eventBus, uiManager) {
         this.eventBus = eventBus;
+        this.uiManager = uiManager;
         this.currentJobId = null;
         this.eventSource = null;
         
@@ -57,8 +58,13 @@ export class DetectionManager {
         // Listen for detection run request
         this.eventBus.on('detection:run', (data) => {
             const params = {};
-            if (data.mirrorVideo) {
+            // Set experiment type flags based on experimentType
+            if (data.experimentType === 'mirror') {
                 params.is_mirror = true;
+            } else if (data.experimentType === 'social') {
+                params.is_social = true;
+            } else if (data.experimentType === 'control') {
+                params.is_control = true;
             }
             this.startDetection(data.code, params);
         });
@@ -75,7 +81,7 @@ export class DetectionManager {
                     code: code,
                     exists: data.has_video,
                     hasKeyframes: data.has_keyframes,
-                    isMirror: data.is_mirror || false
+                    experimentType: data.experiment_type || null
                 });
                 
                 // If not select-only mode and explicitly loading with keyframes, load the video
@@ -93,9 +99,11 @@ export class DetectionManager {
             });
         }
     }
-    
+    getCode() {
+        return this.uiManager.currentVideoCode;
+    }
     async importKeyframes(file) {
-        const code = document.getElementById('codeInput').value;
+        const code = this.getCode();
         if (!code) {
             Swal.fire({
                 icon: 'error',
@@ -330,12 +338,12 @@ export class DetectionManager {
         setTimeout(() => {
             this.hideDetectionModal();
             // Reload the video with new keyframes
-            const code = document.getElementById('codeInput').value;
+            const code = this.getCode();
             // Emit detection completed event first
             this.eventBus.emit('detection:completed', { code });
             // Then load the video
             this.eventBus.emit('ui:quickLoad', { code });
-        }, 2000);
+        }, 1);
     }
     
     handleError(data) {

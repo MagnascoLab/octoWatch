@@ -42,6 +42,8 @@ export class UIManager {
             deleteCurrentVideoBtn: document.getElementById('deleteCurrentVideoBtn'),
             unloadVideoBtn: document.getElementById('unloadVideoBtn'),
             runDetectionBtn: document.getElementById('runDetectionBtn'),
+            importKeyframesBtn: document.getElementById('importKeyframesBtn'),
+            keyframesFileInput: document.getElementById('keyframesFileInput'),
             
             // Video controls
             playPauseBtn: document.getElementById('playPauseBtn'),
@@ -611,7 +613,7 @@ export class UIManager {
         // Code check result
         this.eventBus.on('detection:codeCheckResult', (data) => {
             if (data.exists) {
-                this.updateCurrentVideoDisplay(data.code, data.hasKeyframes, data.isMirror);
+                this.updateCurrentVideoDisplay(data.code, data.hasKeyframes, data.experimentType);
             } else {
                 this.showError(`Video MVI_${data.code}_proxy not found`);
             }
@@ -692,9 +694,9 @@ export class UIManager {
      * Update current video display
      * @param {string} code - Video code
      * @param {boolean} hasKeyframes - Whether video has keyframes
-     * @param {boolean} isMirror - Whether video is marked as mirror
+     * @param {string|null} experimentType - Type of experiment (mirror/social/control or null)
      */
-    updateCurrentVideoDisplay(code, hasKeyframes, isMirror = false) {
+    updateCurrentVideoDisplay(code, hasKeyframes, experimentType = null) {
         this.currentVideoCode = code;
         this.currentVideoHasKeyframes = hasKeyframes;
         
@@ -715,7 +717,7 @@ export class UIManager {
             // Set dropdown based on mirror status or existing experiment type
             if (hasKeyframes) {
                 // For existing videos with keyframes, set based on mirror flag
-                experimentSelect.value = isMirror ? 'mirror' : '';
+                experimentSelect.value = experimentType || '';
             } else {
                 // For new videos, reset to default
                 experimentSelect.value = '';
@@ -916,10 +918,10 @@ export class UIManager {
         }
         
         // Run detection with mirror flag set if experiment type is 'mirror'
-        const mirrorVideo = experimentSelect.value === 'mirror';
+        const experimentType = experimentSelect.value;
         this.eventBus.emit('detection:run', { 
             code: this.currentVideoCode,
-            mirrorVideo: mirrorVideo 
+            experimentType: experimentType
         });
     }
 
@@ -945,12 +947,27 @@ export class UIManager {
             statusIcon.title = codeInfo.has_keyframes ? 'Ready to load' : 'Needs detection';
             
             // Add mirror indicator if video is mirrored
-            if (codeInfo.is_mirror) {
-                const mirrorIcon = document.createElement('div');
-                mirrorIcon.className = 'code-mirror-icon';
-                mirrorIcon.textContent = '🪞';
-                mirrorIcon.title = 'Mirror video';
-                codeElement.appendChild(mirrorIcon);
+            if (codeInfo.experiment_type) {
+                const experimentIcon = document.createElement('div');
+                experimentIcon.className = 'code-experiment-icon';
+                
+                // Set icon and title based on experiment type
+                switch(codeInfo.experiment_type) {
+                    case 'mirror':
+                        experimentIcon.textContent = '🪞';
+                        experimentIcon.title = 'Mirror experiment';
+                        break;
+                    case 'social':
+                        experimentIcon.textContent = '🤝';
+                        experimentIcon.title = 'Social experiment';
+                        break;
+                    case 'control':
+                        experimentIcon.textContent = '🐙';
+                        experimentIcon.title = 'Control experiment';
+                        break;
+                }
+                
+                codeElement.appendChild(experimentIcon);
             }
             
             // Add delete button
@@ -970,7 +987,7 @@ export class UIManager {
             // Make clickable
             codeElement.addEventListener('click', () => {
                 // Update current video display with mirror status
-                this.updateCurrentVideoDisplay(codeInfo.code, codeInfo.has_keyframes, codeInfo.is_mirror || false);
+                this.updateCurrentVideoDisplay(codeInfo.code, codeInfo.has_keyframes, codeInfo.experiment_type || null);
             });
             
             this.elements.codesGrid.appendChild(codeElement);
@@ -1194,9 +1211,9 @@ export class UIManager {
             }
             
             // For new uploads, always uncheck mirror checkbox
-            const mirrorVideoCheckbox = document.getElementById('mirrorVideoCheckbox');
-            if (mirrorVideoCheckbox) {
-                mirrorVideoCheckbox.checked = false;
+            const experimentSelect = document.getElementById('experimentTypeSelect');
+            if (experimentSelect) {
+                experimentSelect.value = '';
             }
             
             // Hide after 5 seconds

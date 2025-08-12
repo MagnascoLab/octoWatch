@@ -63,9 +63,13 @@ class DetectionManager:
                 '--progress-json'  # New flag for JSON progress output
             ]
             
-            # Add mirror flag if specified
+            # Add experiment type flags if specified
             if params.get('is_mirror'):
                 cmd.append('--mirror')
+            elif params.get('is_social'):
+                cmd.append('--social')
+            elif params.get('is_control'):
+                cmd.append('--control')
             
             process = subprocess.Popen(
                 cmd,
