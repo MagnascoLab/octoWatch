@@ -12,53 +12,119 @@
     <div class="container">
         <h2 style="position:fixed;left:10px;top:10px;margin:0px; text-shadow: 2px 2px 2px rgba(0,0,0,0.3);z-index:2;">OctoWatch</h2>
         
-        <!-- Load Files Modal -->
+        <!-- Video Manager Modal -->
         <div id="loadModal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content video-manager">
                 <span class="close">&times;</span>
-                <h2>Load Video</h2>
+                <h2>Video Manager</h2>
                 
-                <div class="quick-load">
-                    <h3>Quick Load by Code</h3>
-                    <form id="quickLoadForm">
-                        <div class="form-group">
-                            <label for="codeInput">Enter 4-digit code (e.g., 0020, 0601):</label>
-                            <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="0020">
-                            <button type="submit">Load by Code</button>
-                            <button type="button" id="runDetectionBtn" style="display: none;">Run Detection</button>
-                            <button type="button" id="importKeyframesBtn" style="display: none;">Import Keyframes</button>
-                            <input type="file" id="keyframesFileInput" accept=".json" style="display: none;">
-                            <br>
-                            <div id="detectionOptions" style="display: none; margin-top: 10px;">
-                                <label style="font-size: 14px;">
-                                    <input type="checkbox" id="mirrorVideoCheckbox" style="margin-right: 5px;">
-                                    Mirror Video
-                                </label>
+                <div class="video-manager-container">
+                    <!-- Left Panel: Video Selection -->
+                    <div class="video-selection-panel">
+                        <h3>Select Video</h3>
+                        
+                        <!-- Quick Load and Upload in horizontal layout -->
+                        <div class="selection-row">
+                            <!-- Upload New Section -->
+                            <div class="selection-section-half">
+                                <h4>Upload New</h4>
+                                <form id="uploadForm" class="upload-form-vertical">
+                                    <input type="file" id="videoFile" accept="video/*" required>
+                                    <button type="submit">Upload</button>
+                                </form>
                             </div>
-                            <br>
-                            <button type="button" id="browseCodesBtn" class="browse-codes-btn">Browse Available Codes</button>
+                            
+                            <!-- Quick Load Section -->
+                            <div class="selection-section-half">
+                                <h4>Quick Select (Enter Code of Video To Select)</h4>
+                                <form id="quickLoadForm" class="quick-load-form-vertical">
+                                    <input type="text" id="codeInput" pattern="[0-9]{4}" maxlength="4" placeholder="4-digit code">
+                                    <button type="submit">Select</button>
+                                </form>
+                            </div>
                         </div>
+                        
+                        <!-- Browse Videos Section -->
+                        <div class="selection-section">
+                            <h4>Browse Videos (Click To Select)</h4>
+                            <div id="availableCodesList" class="available-codes-list">
+                                <div id="codesGrid" class="codes-grid"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Panel: Current Video Management -->
+                    <div class="video-management-panel" id="videoManagementPanel" style="display: none;">
+                        <h3>Current Video</h3>
+                        
+                        <div class="current-video-info">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div class="video-name" id="currentVideoName">No video selected</div>
+                                    <div class="video-status" id="currentVideoStatus"></div>
+                                </div>
+                                <div id="experimentTypeContainer" style="display: none;">
+                                    <label class="experiment-type-label">
+                                        Experiment Type:
+                                        <select id="experimentTypeSelect">
+                                            <option value="" disabled selected>Select type</option>
+                                            <option value="social">Social</option>
+                                            <option value="mirror">Mirror</option>
+                                            <option value="control">Control</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="management-actions">
+                            <!-- Detection Section -->
+                            <div class="action-section" id="detectionSection" style="display: none;">
+                                <div class="button-with-tooltip">
+                                    <button type="button" id="runDetectionBtn" class="action-btn">
+                                        🔍 Run Detection
+                                    </button>
+                                    <span class="tooltip" id="runDetectionTooltip">Please select experiment type first</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Import Keyframes Section -->
+                            <div class="action-section">
+                                <button type="button" id="importKeyframesBtn" class="action-btn">
+                                    📁 Import Keyframes
+                                </button>
+                                <input type="file" id="keyframesFileInput" accept=".json" style="display: none;">
+                            </div>
+                            
+                            <!-- Keyframe Status -->
+                            <div class="keyframe-status" id="keyframeStatus"></div>
+                            
+                            <!-- Load into OctoWatch -->
+                            <div class="action-section">
+                                <button type="button" id="loadIntoOctoWatchBtn" class="action-btn primary" disabled>
+                                    ▶️ Load into OctoWatch
+                                </button>
+                                <p class="help-text">Requires keyframes to visualize</p>
+                            </div>
+                            
+                            <!-- Unload Video -->
+                            <div class="action-section">
+                                <button type="button" id="unloadVideoBtn" class="action-btn">
+                                    ↩️ Deselect Video
+                                </button>
+                            </div>
+                            
+                            <!-- Delete Video -->
+                            <div class="action-section">
+                                <button type="button" id="deleteCurrentVideoBtn" class="action-btn danger">
+                                    🗑️ Delete Video
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div id="codeStatus" class="code-status"></div>
-                    </form>
-                    <div id="availableCodesList" class="available-codes-list" style="display: none;">
-                        <h4>Available Codes</h4>
-                        <div id="codesGrid" class="codes-grid"></div>
                     </div>
                 </div>
-                
-                <div class="divider">OR</div>
-                
-                <h3>Upload New Video</h3>
-                <form id="uploadForm">
-                    <div class="form-group">
-                        <label for="videoFile">Video File:</label>
-                        <input type="file" id="videoFile" accept="video/*" required>
-                    </div>
-                    <button type="submit">Upload Video</button>
-                    <p style="font-size: 14px; color: #666; margin-top: 10px;">
-                        Video will be auto-assigned the next available MVI code if not labelled.
-                    </p>
-                </form>
             </div>
         </div>
         
@@ -180,36 +246,36 @@
                 </div>
                 
                 <!-- Zone Analysis Display (moved to right side) -->
-                <div id="zoneAnalysisContainer" style="display: none; position: fixed; top: 90px; right: 10px; width: 280px; background: rgba(248, 249, 250, 0.95); padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h4 style="margin: 0; font-size: 14px; color: #333;">Zone Occupancy (%)</h4>
-                        <button id="toggleZoneVisualization" style="padding: 4px 8px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Show Zones</button>
+                <div id="zoneAnalysisContainer" style="display: none; position: fixed; top: 90px; right: 10px; width: auto; background: rgba(248, 249, 250, 0.95); padding: 8px; border-radius: 4px; border: 1px solid #dee2e6; box-shadow: 0 2px 6px rgba(0,0,0,0.1); z-index: 100;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #333;">Zone Occupancy (%)</h4>
+                        <button id="toggleZoneVisualization" style="padding: 2px 6px; font-size: 10px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Show</button>
                     </div>
                     
-                    <!-- Left Side Zone Data -->
-                    <div style="margin-bottom: 12px;">
-                        <h5 style="margin: 0 0 8px 0; font-size: 12px; color: #dc3545; font-weight: 600;">Left Side</h5>
-                        <div id="leftZoneDisplay" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
-                            <!-- Zone percentages will be inserted here -->
-                        </div>
-                    </div>
-                    
-                    <!-- Right Side Zone Data -->
-                    <div>
-                        <h5 style="margin: 0 0 8px 0; font-size: 12px; color: #007bff; font-weight: 600;">Right Side</h5>
-                        <div id="rightZoneDisplay" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
-                            <!-- Zone percentages will be inserted here -->
-                        </div>
-                    </div>
-                    
-                    <!-- Zone Legend -->
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dee2e6; font-size: 10px; color: #666;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;">
-                            <div><strong>D:</strong> Den (no detection)</div>
-                            <div><strong>MP:</strong> Mirror partition</div>
-                            <div><strong>H1/H2:</strong> Near/Far from mirror</div>
-                            <div><strong>T/B:</strong> Top/Bottom half</div>
-                        </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Left Side Table -->
+                        <table style="font-size: 10px; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th colspan="3" style="text-align: center; color: #dc3545; font-weight: 600; padding: 2px 0; font-size: 11px;">Left</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leftZoneDisplay">
+                                <!-- Zone data will be inserted here -->
+                            </tbody>
+                        </table>
+                        
+                        <!-- Right Side Table -->
+                        <table style="font-size: 10px; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th colspan="3" style="text-align: center; color: #007bff; font-weight: 600; padding: 2px 0; font-size: 11px;">Right</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rightZoneDisplay">
+                                <!-- Zone data will be inserted here -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

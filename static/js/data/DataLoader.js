@@ -60,6 +60,11 @@ export class DataLoader {
             if (response.ok) {
                 // Video uploaded successfully, show code and option to run detection
                 // Keep modal open so user can see the success message and run detection
+                // Emit upload completed event
+                this.eventBus.emit('upload:completed', {
+                    code: data.code,
+                    message: data.message
+                });
                 return data;
             } else {
                 throw new Error(data.error || 'Upload failed');

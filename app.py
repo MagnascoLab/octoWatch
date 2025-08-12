@@ -317,14 +317,30 @@ def list_available_codes():
         code = video_path.stem.split('_')[1]  # MVI_XXXX_proxy -> XXXX
         video_files[code] = True
     
-    # Check for corresponding keyframes
+    # Check for corresponding keyframes and mirror status
     codes_info = []
     for code in sorted(video_files.keys()):
         keyframes_path = keyframes_dir / f'MVI_{code}_keyframes.json'
+        has_keyframes = keyframes_path.exists()
+        
+        # Check if existing keyframes have is_mirror flag
+        is_mirror = False
+        if has_keyframes:
+            try:
+                with open(keyframes_path, 'r') as f:
+                    keyframes_data = json.load(f)
+                    # Check if detection_params has is_mirror flag
+                    if 'detection_params' in keyframes_data:
+                        is_mirror = keyframes_data['detection_params'].get('is_mirror', False)
+            except (json.JSONDecodeError, IOError):
+                # If we can't read the file, default to False
+                pass
+        
         codes_info.append({
             'code': code,
             'has_video': True,
-            'has_keyframes': keyframes_path.exists()
+            'has_keyframes': has_keyframes,
+            'is_mirror': is_mirror
         })
     
     return jsonify({'codes': codes_info})

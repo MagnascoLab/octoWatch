@@ -51,7 +51,7 @@ export class ZoneAnalyzer {
         if (!this.keyframesData || !this.interpolationEngine) {
             throw new Error('Missing required data for zone analysis');
         }
-
+        console.time();
         const totalFrames = this.keyframesData.video_info.total_frames_processed;
         const tankInfo = this.keyframesData.tank_info;
         

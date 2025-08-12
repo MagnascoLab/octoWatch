@@ -20,6 +20,13 @@ export class UIManager {
             modalClose: document.querySelector('.close'),
             loadNewBtn: document.getElementById('loadNewBtn'),
             
+            // Video Manager panels
+            videoManagementPanel: document.getElementById('videoManagementPanel'),
+            currentVideoName: document.getElementById('currentVideoName'),
+            currentVideoStatus: document.getElementById('currentVideoStatus'),
+            keyframeStatus: document.getElementById('keyframeStatus'),
+            detectionSection: document.getElementById('detectionSection'),
+            
             // Upload form
             uploadForm: document.getElementById('uploadForm'),
             videoFile: document.getElementById('videoFile'),
@@ -27,9 +34,14 @@ export class UIManager {
             // Quick load form
             quickLoadForm: document.getElementById('quickLoadForm'),
             codeInput: document.getElementById('codeInput'),
-            browseCodesBtn: document.getElementById('browseCodesBtn'),
             availableCodesList: document.getElementById('availableCodesList'),
             codesGrid: document.getElementById('codesGrid'),
+            
+            // New management buttons
+            loadIntoOctoWatchBtn: document.getElementById('loadIntoOctoWatchBtn'),
+            deleteCurrentVideoBtn: document.getElementById('deleteCurrentVideoBtn'),
+            unloadVideoBtn: document.getElementById('unloadVideoBtn'),
+            runDetectionBtn: document.getElementById('runDetectionBtn'),
             
             // Video controls
             playPauseBtn: document.getElementById('playPauseBtn'),
@@ -146,12 +158,17 @@ export class UIManager {
         this.keyframesData = null;
         this.videoFilename = null;
         this.visualizer = visualizer;
+        this.currentVideoCode = null;
+        this.currentVideoHasKeyframes = false;
         
         // Load saved export postfix
         this.loadExportPostfix();
         
         this.setupEventListeners();
         this.setupEventHandlers();
+        
+        // Initialize video list on modal open
+        this.loadAvailableVideos();
     }
 
     /**
@@ -197,16 +214,57 @@ export class UIManager {
             this.handleFileUploadSubmit();
         });
         
+        
         // Quick load form
         this.elements.quickLoadForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleQuickLoadSubmit(true);
         });
         
-        // Browse codes button
-        this.elements.browseCodesBtn.addEventListener('click', () => {
-            this.handleBrowseCodesClick();
-        });
+        // New management buttons
+        if (this.elements.loadIntoOctoWatchBtn) {
+            this.elements.loadIntoOctoWatchBtn.addEventListener('click', () => {
+                this.handleLoadIntoOctoWatch();
+            });
+        }
+        
+        if (this.elements.deleteCurrentVideoBtn) {
+            this.elements.deleteCurrentVideoBtn.addEventListener('click', () => {
+                this.handleDeleteCurrentVideo();
+            });
+        }
+        
+        if (this.elements.unloadVideoBtn) {
+            this.elements.unloadVideoBtn.addEventListener('click', () => {
+                this.handleUnloadVideo();
+            });
+        }
+        
+        // Import keyframes button functionality
+        if (this.elements.importKeyframesBtn) {
+            this.elements.importKeyframesBtn.addEventListener('click', () => {
+                this.elements.keyframesFileInput.click();
+            });
+            
+            this.elements.keyframesFileInput.addEventListener('change', (e) => {
+                this.handleKeyframesImport(e);
+            });
+        }
+        
+        // Run detection button
+        if (this.elements.runDetectionBtn) {
+            this.elements.runDetectionBtn.addEventListener('click', () => {
+                this.handleRunDetection();
+            });
+        }
+        
+        // Experiment type dropdown
+        const experimentSelect = document.getElementById('experimentTypeSelect');
+        if (experimentSelect) {
+            experimentSelect.addEventListener('change', () => {
+                this.updateRunDetectionState();
+            });
+        }
         
         // Zone visualization toggle
         if (this.elements.toggleZoneVisualization) {
@@ -215,7 +273,7 @@ export class UIManager {
                 
                 // Update button text
                 this.elements.toggleZoneVisualization.textContent = 
-                    this.state.showZoneVisualization ? 'Hide Zones' : 'Show Zones';
+                    this.state.showZoneVisualization ? 'Hide' : 'Show';
                 
                 // Update button style
                 this.elements.toggleZoneVisualization.style.background = 
@@ -543,7 +601,20 @@ export class UIManager {
         
         // Detection completed
         this.eventBus.on('detection:completed', (data) => {
-            this.refreshAvailableCodes();
+            // Update current video to show it now has keyframes
+            if (data.code === this.currentVideoCode) {
+                this.updateCurrentVideoDisplay(data.code, true);
+            }
+            this.loadAvailableVideos();
+        });
+        
+        // Code check result
+        this.eventBus.on('detection:codeCheckResult', (data) => {
+            if (data.exists) {
+                this.updateCurrentVideoDisplay(data.code, data.hasKeyframes, data.isMirror);
+            } else {
+                this.showError(`Video MVI_${data.code}_proxy not found`);
+            }
         });
     }
 
@@ -552,6 +623,8 @@ export class UIManager {
      */
     showModal() {
         this.elements.modal.style.display = 'block';
+        // Refresh video list when modal opens
+        this.loadAvailableVideos();
     }
 
     /**
@@ -564,7 +637,7 @@ export class UIManager {
     /**
      * Handle file upload form submission
      */
-    handleFileUploadSubmit() {
+    async handleFileUploadSubmit() {
         const videoFile = this.elements.videoFile.files[0];
         
         if (!videoFile) {
@@ -577,7 +650,17 @@ export class UIManager {
             return;
         }
         
+        // Upload and then select the new video
         this.eventBus.emit('ui:uploadVideo', { videoFile });
+        
+        // Listen for upload completion to select the new video
+        this.eventBus.once('upload:completed', (data) => {
+            if (data.code) {
+                this.updateCurrentVideoDisplay(data.code, false);
+                // Clear the file input
+                this.elements.videoFile.value = '';
+            }
+        });
     }
 
     /**
@@ -585,33 +668,259 @@ export class UIManager {
      */
     handleQuickLoadSubmit(explicit = false) {
         const code = this.elements.codeInput.value.trim();
-        // Only check if keyframes exist - DetectionManager will handle loading if appropriate
-        this.eventBus.emit('detection:checkCode', { code, explicit });
+        if (!code) {
+            this.showError('Please enter a 4-digit code');
+            return;
+        }
+        
+        // Check if video exists and update display
+        this.eventBus.emit('detection:checkCode', { code, explicit, selectOnly: true });
     }
 
     /**
-     * Handle browse codes button click
+     * Load available videos on modal open
      */
-    async handleBrowseCodesClick() {
-        // Toggle visibility
-        const isVisible = this.elements.availableCodesList.style.display !== 'none';
+    async loadAvailableVideos() {
+        try {
+            this.eventBus.emit('ui:fetchAvailableCodes');
+        } catch (error) {
+            this.showError('Failed to load available videos');
+        }
+    }
+    
+    /**
+     * Update current video display
+     * @param {string} code - Video code
+     * @param {boolean} hasKeyframes - Whether video has keyframes
+     * @param {boolean} isMirror - Whether video is marked as mirror
+     */
+    updateCurrentVideoDisplay(code, hasKeyframes, isMirror = false) {
+        this.currentVideoCode = code;
+        this.currentVideoHasKeyframes = hasKeyframes;
         
-        if (!isVisible) {
-            // Show the codes list
-            this.elements.availableCodesList.style.display = 'block';
-            this.elements.browseCodesBtn.textContent = 'Hide Available Codes';
-            
-            // Fetch and display available codes
-            try {
-                this.eventBus.emit('ui:fetchAvailableCodes');
-            } catch (error) {
-                this.showError('Failed to load available codes');
+        // Show management panel
+        this.elements.videoManagementPanel.style.display = 'block';
+        
+        // Update video info
+        this.elements.currentVideoName.textContent = `MVI_${code}_proxy.mp4`;
+        this.elements.currentVideoStatus.textContent = hasKeyframes ? '✅ Has keyframes' : '⚠️ Needs detection';
+        
+        // Show experiment type dropdown and set its state
+        const experimentContainer = document.getElementById('experimentTypeContainer');
+        const experimentSelect = document.getElementById('experimentTypeSelect');
+        if (experimentContainer) {
+            experimentContainer.style.display = 'block';
+        }
+        if (experimentSelect) {
+            // Set dropdown based on mirror status or existing experiment type
+            if (hasKeyframes) {
+                // For existing videos with keyframes, set based on mirror flag
+                experimentSelect.value = isMirror ? 'mirror' : '';
+            } else {
+                // For new videos, reset to default
+                experimentSelect.value = '';
+            }
+            // Enable/disable run detection based on selection
+            this.updateRunDetectionState();
+        }
+        
+        // Update keyframe status and detection section
+        if (hasKeyframes) {
+            this.elements.keyframeStatus.style.display = 'block';
+            this.elements.keyframeStatus.textContent = 'Keyframes available - ready to visualize';
+            this.elements.keyframeStatus.style.backgroundColor = '#d4edda';
+            this.elements.keyframeStatus.style.borderColor = '#28a745';
+            // Show detection section with Re-run option
+            this.elements.detectionSection.style.display = 'block';
+            if (this.elements.runDetectionBtn) {
+                this.elements.runDetectionBtn.textContent = '🔄 Re-run Detection';
             }
         } else {
-            // Hide the codes list
-            this.elements.availableCodesList.style.display = 'none';
-            this.elements.browseCodesBtn.textContent = 'Browse Available Codes';
+            this.elements.keyframeStatus.style.display = 'block';
+            this.elements.keyframeStatus.textContent = 'No keyframes - run detection or import';
+            this.elements.keyframeStatus.style.backgroundColor = '#fff3cd';
+            this.elements.keyframeStatus.style.borderColor = '#ffc107';
+            this.elements.detectionSection.style.display = 'block';
+            if (this.elements.runDetectionBtn) {
+                this.elements.runDetectionBtn.textContent = '🔍 Run Detection';
+            }
         }
+        
+        // Enable/disable Load into OctoWatch button
+        this.elements.loadIntoOctoWatchBtn.disabled = !hasKeyframes;
+        
+        // Update code status
+        const statusEl = document.getElementById('codeStatus');
+        if (statusEl) {
+            statusEl.textContent = '';
+            statusEl.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Handle Load into OctoWatch button click
+     */
+    handleLoadIntoOctoWatch() {
+        if (!this.currentVideoCode || !this.currentVideoHasKeyframes) {
+            this.showError('Cannot load video without keyframes');
+            return;
+        }
+        
+        // Hide modal
+        this.hideModal();
+        
+        // Emit event to load video into visualizer
+        this.eventBus.emit('ui:quickLoad', { code: this.currentVideoCode });
+    }
+    
+    /**
+     * Handle unload video - clear selection and return to initial state
+     */
+    handleUnloadVideo() {
+        // Clear current video state
+        this.currentVideoCode = null;
+        this.currentVideoHasKeyframes = false;
+        
+        // Hide management panel
+        this.elements.videoManagementPanel.style.display = 'none';
+        
+        // Hide experiment type dropdown
+        const experimentContainer = document.getElementById('experimentTypeContainer');
+        if (experimentContainer) {
+            experimentContainer.style.display = 'none';
+        }
+        
+        // Clear the quick load input
+        if (this.elements.codeInput) {
+            this.elements.codeInput.value = '';
+        }
+        
+        // Clear any status messages
+        const statusEl = document.getElementById('codeStatus');
+        if (statusEl) {
+            statusEl.textContent = '';
+            statusEl.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Handle delete current video
+     */
+    async handleDeleteCurrentVideo() {
+        if (!this.currentVideoCode) return;
+        
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: 'Delete Video?',
+            text: `This will permanently delete MVI_${this.currentVideoCode}_proxy and its keyframes`,
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, delete it',
+            cancelButtonText: 'Cancel'
+        });
+        
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/delete-video/${this.currentVideoCode}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    this.showSuccess(`Deleted MVI_${this.currentVideoCode}_proxy`);
+                    
+                    // Clear current video
+                    this.currentVideoCode = null;
+                    this.currentVideoHasKeyframes = false;
+                    this.elements.videoManagementPanel.style.display = 'none';
+                    
+                    // Refresh video list
+                    this.loadAvailableVideos();
+                } else {
+                    this.showError(data.error || 'Failed to delete video');
+                }
+            } catch (error) {
+                this.showError('Network error while deleting video');
+            }
+        }
+    }
+    
+    /**
+     * Handle keyframes import
+     * @param {Event} e - File input change event
+     */
+    async handleKeyframesImport(e) {
+        const file = e.target.files[0];
+        if (!file || !this.currentVideoCode) return;
+        
+        const formData = new FormData();
+        formData.append('keyframes', file);
+        
+        try {
+            const response = await fetch(`/import-keyframes/${this.currentVideoCode}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.showSuccess('Keyframes imported successfully');
+                this.updateCurrentVideoDisplay(this.currentVideoCode, true);
+                this.loadAvailableVideos();
+            } else {
+                this.showError(data.error || 'Failed to import keyframes');
+            }
+        } catch (error) {
+            this.showError('Network error while importing keyframes');
+        }
+        
+        // Clear file input
+        e.target.value = '';
+    }
+    
+    /**
+     * Update run detection button state based on experiment type selection
+     */
+    updateRunDetectionState() {
+        const experimentSelect = document.getElementById('experimentTypeSelect');
+        const tooltip = document.getElementById('runDetectionTooltip');
+        if (!experimentSelect || !this.elements.runDetectionBtn) return;
+        
+        const hasSelection = experimentSelect.value !== '';
+        this.elements.runDetectionBtn.disabled = !hasSelection;
+        
+        // Update tooltip visibility and text
+        if (tooltip) {
+            if (!hasSelection) {
+                tooltip.textContent = 'Please select experiment type first';
+            } else {
+                // You can update the tooltip text based on selection if needed
+                tooltip.textContent = `Run detection for ${experimentSelect.value} experiment`;
+            }
+        }
+    }
+    
+    /**
+     * Handle run detection button click
+     */
+    handleRunDetection() {
+        if (!this.currentVideoCode) return;
+        
+        const experimentSelect = document.getElementById('experimentTypeSelect');
+        if (!experimentSelect || !experimentSelect.value) {
+            this.showError('Please select experiment type first');
+            return;
+        }
+        
+        // Run detection with mirror flag set if experiment type is 'mirror'
+        const mirrorVideo = experimentSelect.value === 'mirror';
+        this.eventBus.emit('detection:run', { 
+            code: this.currentVideoCode,
+            mirrorVideo: mirrorVideo 
+        });
     }
 
     /**
@@ -635,6 +944,15 @@ export class UIManager {
             statusIcon.textContent = codeInfo.has_keyframes ? '✅' : '🟡';
             statusIcon.title = codeInfo.has_keyframes ? 'Ready to load' : 'Needs detection';
             
+            // Add mirror indicator if video is mirrored
+            if (codeInfo.is_mirror) {
+                const mirrorIcon = document.createElement('div');
+                mirrorIcon.className = 'code-mirror-icon';
+                mirrorIcon.textContent = '🪞';
+                mirrorIcon.title = 'Mirror video';
+                codeElement.appendChild(mirrorIcon);
+            }
+            
             // Add delete button
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'code-delete-btn';
@@ -651,16 +969,8 @@ export class UIManager {
             
             // Make clickable
             codeElement.addEventListener('click', () => {
-                this.elements.codeInput.value = codeInfo.code;
-                this.handleQuickLoadSubmit();
-                //this.elements.codeInput.focus();
-                //if (codeInfo.has_keyframes) {
-                    // Auto-submit if keyframes exist
-                    //this.handleQuickLoadSubmit();
-                /*} else {
-                    // Just populate the field and let user decide
-                    this.elements.codeInput.focus();
-                }*/
+                // Update current video display with mirror status
+                this.updateCurrentVideoDisplay(codeInfo.code, codeInfo.has_keyframes, codeInfo.is_mirror || false);
             });
             
             this.elements.codesGrid.appendChild(codeElement);
@@ -804,32 +1114,59 @@ export class UIManager {
     displayZoneAnalysis(data) {
         if (!data || !data.left || !data.right) return;
         
-        // Reordered: MP, H1, H2 in first row; D, T, B in second row
-        const zones = ['MP', 'H1', 'H2', 'D', 'T', 'B'];
+        // Zones arranged in two rows of three
+        const zonesRow1 = ['MP', 'H1', 'H2'];
+        const zonesRow2 = ['D', 'T', 'B'];
         
-        // Format and display left side zones
+        // Format left side zones as table rows
         this.elements.leftZoneDisplay.innerHTML = '';
-        zones.forEach(zone => {
-            const percentage = data.left.percentages[zone];
-            if (percentage !== undefined) {
-                const zoneEl = document.createElement('div');
-                zoneEl.style.cssText = 'padding: 4px 6px; background: white; border-radius: 4px; border: 1px solid #ddd;';
-                zoneEl.innerHTML = `<strong>${zone}:</strong> ${percentage.toFixed(1)}%`;
-                this.elements.leftZoneDisplay.appendChild(zoneEl);
-            }
-        });
         
-        // Format and display right side zones
-        this.elements.rightZoneDisplay.innerHTML = '';
-        zones.forEach(zone => {
-            const percentage = data.right.percentages[zone];
-            if (percentage !== undefined) {
-                const zoneEl = document.createElement('div');
-                zoneEl.style.cssText = 'padding: 4px 6px; background: white; border-radius: 4px; border: 1px solid #ddd;';
-                zoneEl.innerHTML = `<strong>${zone}:</strong> ${percentage.toFixed(1)}%`;
-                this.elements.rightZoneDisplay.appendChild(zoneEl);
-            }
+        // First row
+        const leftRow1 = document.createElement('tr');
+        zonesRow1.forEach(zone => {
+            const percentage = data.left.percentages[zone];
+            const td = document.createElement('td');
+            td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+            td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+            leftRow1.appendChild(td);
         });
+        this.elements.leftZoneDisplay.appendChild(leftRow1);
+        
+        // Second row
+        const leftRow2 = document.createElement('tr');
+        zonesRow2.forEach(zone => {
+            const percentage = data.left.percentages[zone];
+            const td = document.createElement('td');
+            td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+            td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+            leftRow2.appendChild(td);
+        });
+        this.elements.leftZoneDisplay.appendChild(leftRow2);
+        
+        // Format right side zones as table rows
+        this.elements.rightZoneDisplay.innerHTML = '';
+        
+        // First row
+        const rightRow1 = document.createElement('tr');
+        zonesRow1.forEach(zone => {
+            const percentage = data.right.percentages[zone];
+            const td = document.createElement('td');
+            td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+            td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+            rightRow1.appendChild(td);
+        });
+        this.elements.rightZoneDisplay.appendChild(rightRow1);
+        
+        // Second row
+        const rightRow2 = document.createElement('tr');
+        zonesRow2.forEach(zone => {
+            const percentage = data.right.percentages[zone];
+            const td = document.createElement('td');
+            td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+            td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+            rightRow2.appendChild(td);
+        });
+        this.elements.rightZoneDisplay.appendChild(rightRow2);
     }
     
     /**
@@ -878,16 +1215,10 @@ export class UIManager {
     }
 
     /**
-     * Refresh available codes list if visible
+     * Refresh available codes list
      */
     refreshAvailableCodes() {
-        // Check if the codes list is currently visible
-        const isVisible = this.elements.availableCodesList.style.display !== 'none';
-        
-        if (isVisible) {
-            // Re-fetch and display available codes
-            this.eventBus.emit('ui:fetchAvailableCodes');
-        }
+        this.loadAvailableVideos();
     }
     
     /**

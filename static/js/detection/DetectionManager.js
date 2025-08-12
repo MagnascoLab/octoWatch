@@ -38,92 +38,59 @@ export class DetectionManager {
     
     setupEventListeners() {
         this.cancelBtn.addEventListener('click', () => this.cancelDetection());
-        this.runDetectionBtn.addEventListener('click', () => {
-            const code = document.getElementById('codeInput').value;
-            if (code) {
-                const params = {};
-                // Check if mirror video checkbox is checked
-                if (this.mirrorVideoCheckbox && this.mirrorVideoCheckbox.checked) {
-                    params.is_mirror = true;
-                }
-                this.startDetection(code, params);
-            }
-        });
         
-        // Import keyframes button
-        this.importKeyframesBtn.addEventListener('click', () => {
-            this.keyframesFileInput.click();
-        });
+        // NOTE: runDetectionBtn click is now handled by UIManager
+        // which properly handles the experiment type dropdown
+        // DO NOT add a listener here - it would create duplicate events
         
-        // Handle keyframes file selection
-        this.keyframesFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                this.importKeyframes(file);
-            }
-            // Reset the input so the same file can be selected again
-            e.target.value = '';
-        });
+        // Remove import keyframes listeners - now handled in UIManager
+        // The old code handling is kept for backward compatibility
+        // but will not be used in the new workflow
     }
     
     setupEventHandlers() {
         // Listen for code validation
         this.eventBus.on('detection:checkCode', async (data) => {
-            await this.checkCode(data.code, data.explicit);
+            await this.checkCode(data.code, data.explicit, data.selectOnly);
+        });
+        
+        // Listen for detection run request
+        this.eventBus.on('detection:run', (data) => {
+            const params = {};
+            if (data.mirrorVideo) {
+                params.is_mirror = true;
+            }
+            this.startDetection(data.code, params);
         });
     }
     
-    async checkCode(code, explicit = false) {
+    async checkCode(code, explicit = false, selectOnly = false) {
         try {
             const response = await fetch(`/check-keyframes/${code}`);
             const data = await response.json();
             
             if (response.ok) {
-                if (data.has_video && !data.has_keyframes) {
-                    this.codeStatus.textContent = 'Video found - no keyframes detected';
-                    this.codeStatus.className = 'code-status info';
-                    this.runDetectionBtn.style.display = 'inline-block';
-                    this.runDetectionBtn.innerHTML = 'Run Detection';
-                    this.importKeyframesBtn.style.display = 'inline-block';
-                    // Show detection options
-                    if (this.detectionOptions) {
-                        this.detectionOptions.style.display = 'block';
-                    }
-                    // For new videos (no keyframes), always uncheck mirror checkbox
-                    if (this.mirrorVideoCheckbox) {
-                        this.mirrorVideoCheckbox.checked = false;
-                    }
-                } else if (data.has_video && data.has_keyframes) {
-                    this.codeStatus.textContent = 'Video and keyframes found';
-                    this.codeStatus.className = 'code-status success';
-                    this.runDetectionBtn.style.display = 'inline-block';
-                    this.runDetectionBtn.innerHTML = 'Re-run Detection';
-                    this.importKeyframesBtn.style.display = 'inline-block';
-                    // Show detection options
-                    if (this.detectionOptions) {
-                        this.detectionOptions.style.display = 'block';
-                    }
-                    // For existing videos, set checkbox based on is_mirror flag
-                    if (this.mirrorVideoCheckbox) {
-                        this.mirrorVideoCheckbox.checked = data.is_mirror || false;
-                    }
-                    if (explicit) {
-                        // If user explicitly submitted, load the video
-                        this.eventBus.emit('ui:quickLoad', { code });
-                    }
-                } else {
-                    this.codeStatus.textContent = 'Video not found';
-                    this.codeStatus.className = 'code-status error';
-                    this.runDetectionBtn.style.display = 'none';
-                    this.importKeyframesBtn.style.display = 'none';
-                    // Hide detection options
-                    if (this.detectionOptions) {
-                        this.detectionOptions.style.display = 'none';
-                    }
+                // Emit result back to UIManager
+                this.eventBus.emit('detection:codeCheckResult', {
+                    code: code,
+                    exists: data.has_video,
+                    hasKeyframes: data.has_keyframes,
+                    isMirror: data.is_mirror || false
+                });
+                
+                // If not select-only mode and explicitly loading with keyframes, load the video
+                if (!selectOnly && explicit && data.has_video && data.has_keyframes) {
+                    this.eventBus.emit('ui:quickLoad', { code });
                 }
             }
         } catch (error) {
             console.error('Error checking code:', error);
+            this.eventBus.emit('detection:codeCheckResult', {
+                code: code,
+                exists: false,
+                hasKeyframes: false,
+                error: error.message
+            });
         }
     }
     
