@@ -137,7 +137,12 @@ export class UIManager {
             
             // Sections
             visualizerSection: document.getElementById('visualizerSection'),
-            activityHeatmap: document.getElementById('activityHeatmap')
+            activityHeatmap: document.getElementById('activityHeatmap'),
+            
+            // Thumbnail elements
+            videoThumbnailContainer: document.getElementById('videoThumbnailContainer'),
+            videoThumbnail: document.getElementById('videoThumbnail'),
+            thumbnailLoading: document.getElementById('thumbnailLoading')
         };
         
         // UI state
@@ -707,6 +712,9 @@ export class UIManager {
         this.elements.currentVideoName.textContent = `MVI_${code}_proxy.mp4`;
         this.elements.currentVideoStatus.textContent = hasKeyframes ? '✅ Has keyframes' : '⚠️ Needs detection';
         
+        // Load and display thumbnail
+        this.loadVideoThumbnail(code);
+        
         // Show experiment type dropdown and set its state
         const experimentContainer = document.getElementById('experimentTypeContainer');
         const experimentSelect = document.getElementById('experimentTypeSelect');
@@ -760,6 +768,45 @@ export class UIManager {
     }
     
     /**
+     * Load and display video thumbnail
+     * @param {string} code - Video code
+     */
+    async loadVideoThumbnail(code) {
+        // Show thumbnail container and loading state
+        if (this.elements.videoThumbnailContainer) {
+            this.elements.videoThumbnailContainer.style.display = 'block';
+            this.elements.thumbnailLoading.style.display = 'flex';
+            this.elements.videoThumbnail.style.display = 'none';
+            
+            try {
+                // Fetch thumbnail from server
+                const response = await fetch(`/video-thumbnail/${code}`);
+                
+                if (response.ok) {
+                    // Create blob URL for the image
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    // Set the image source and show it
+                    this.elements.videoThumbnail.src = imageUrl;
+                    this.elements.videoThumbnail.onload = () => {
+                        this.elements.thumbnailLoading.style.display = 'none';
+                        this.elements.videoThumbnail.style.display = 'block';
+                    };
+                } else {
+                    // Hide loading and show placeholder or error
+                    this.elements.thumbnailLoading.style.display = 'none';
+                    console.error('Failed to load thumbnail:', response.status);
+                }
+            } catch (error) {
+                // Hide loading on error
+                this.elements.thumbnailLoading.style.display = 'none';
+                console.error('Error loading thumbnail:', error);
+            }
+        }
+    }
+    
+    /**
      * Handle Load into OctoWatch button click
      */
     handleLoadIntoOctoWatch() {
@@ -785,6 +832,12 @@ export class UIManager {
         
         // Hide management panel
         this.elements.videoManagementPanel.style.display = 'none';
+        
+        // Hide thumbnail
+        if (this.elements.videoThumbnailContainer) {
+            this.elements.videoThumbnailContainer.style.display = 'none';
+            this.elements.videoThumbnail.src = '';
+        }
         
         // Hide experiment type dropdown
         const experimentContainer = document.getElementById('experimentTypeContainer');
@@ -958,7 +1011,7 @@ export class UIManager {
                         experimentIcon.title = 'Mirror experiment';
                         break;
                     case 'social':
-                        experimentIcon.textContent = '🤝';
+                        experimentIcon.innerHTML = '🐙<br>🐙';
                         experimentIcon.title = 'Social experiment';
                         break;
                     case 'control':

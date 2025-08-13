@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context, send_file
 import os
 import json
 from pathlib import Path
@@ -9,6 +9,10 @@ import subprocess
 import sys
 from detection_manager import detection_manager
 import re
+import cv2
+import numpy as np
+from io import BytesIO
+import base64
 
 # Store mapping of MVI codes to original uploaded filenames
 VIDEO_UPLOAD_MAPPING = {}
@@ -71,6 +75,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('videos', exist_ok=True)
 os.makedirs('videos_keyframes', exist_ok=True)
+os.makedirs('thumbnails', exist_ok=True)
 
 # Load the upload mapping on startup
 load_upload_mapping()
@@ -199,6 +204,109 @@ def load_by_code(code):
         'video_url': f'/{video_path}',
         'keyframes': keyframes_data
     })
+
+@app.route('/video-thumbnail/<code>')
+def video_thumbnail(code):
+    """Generate or serve a cached thumbnail for a video"""
+    # Validate code is 4 digits
+    if not code.isdigit() or len(code) != 4:
+        return jsonify({'error': 'Invalid code format. Must be 4 digits.'}), 400
+    
+    # Check for cached thumbnail first
+    thumbnail_dir = Path('thumbnails')
+    thumbnail_path = thumbnail_dir / f'MVI_{code}_thumb.jpg'
+    
+    if thumbnail_path.exists():
+        # Serve cached thumbnail
+        return send_file(str(thumbnail_path), mimetype='image/jpeg')
+    
+    # Find the video file
+    video_dir = Path('videos')
+    video_path = None
+    
+    # Check for video file with both .mp4 and .MP4 extensions
+    video_filename_lower = f'MVI_{code}_proxy.mp4'
+    video_filename_upper = f'MVI_{code}_proxy.MP4'
+    
+    if (video_dir / video_filename_lower).exists():
+        video_path = video_dir / video_filename_lower
+    elif (video_dir / video_filename_upper).exists():
+        video_path = video_dir / video_filename_upper
+    
+    if not video_path:
+        return jsonify({'error': f'Video file not found for code {code}'}), 404
+    
+    # Generate thumbnail
+    try:
+        # Open video
+        cap = cv2.VideoCapture(str(video_path))
+        
+        # Get total frame count
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        if total_frames == 0:
+            cap.release()
+            return jsonify({'error': 'Unable to read video frames'}), 500
+        
+        # Seek to middle frame
+        middle_frame = total_frames // 2
+        cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame)
+        
+        # Read the frame
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret or frame is None:
+            return jsonify({'error': 'Unable to extract frame from video'}), 500
+        
+        # Resize frame to thumbnail size (320x180 for 16:9 aspect ratio)
+        height, width = frame.shape[:2]
+        target_width = 320
+        target_height = 180
+        
+        # Calculate aspect ratio and resize
+        aspect = width / height
+        if aspect > target_width / target_height:
+            # Width is limiting factor
+            new_width = target_width
+            new_height = int(target_width / aspect)
+        else:
+            # Height is limiting factor
+            new_height = target_height
+            new_width = int(target_height * aspect)
+        
+        # Resize the frame
+        thumbnail = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        
+        # If the thumbnail doesn't match target size exactly, pad with black
+        if new_width != target_width or new_height != target_height:
+            # Create black canvas
+            canvas = np.zeros((target_height, target_width, 3), dtype=np.uint8)
+            # Calculate position to center the thumbnail
+            y_offset = (target_height - new_height) // 2
+            x_offset = (target_width - new_width) // 2
+            # Place thumbnail on canvas
+            canvas[y_offset:y_offset+new_height, x_offset:x_offset+new_width] = thumbnail
+            thumbnail = canvas
+        
+        # Encode as JPEG
+        _, buffer = cv2.imencode('.jpg', thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        
+        # Save to cache
+        with open(thumbnail_path, 'wb') as f:
+            f.write(buffer.tobytes())
+        
+        # Return the thumbnail
+        return send_file(
+            BytesIO(buffer.tobytes()),
+            mimetype='image/jpeg',
+            as_attachment=False,
+            download_name=f'MVI_{code}_thumb.jpg'
+        )
+        
+    except Exception as e:
+        print(f"Error generating thumbnail for {code}: {str(e)}")
+        return jsonify({'error': f'Failed to generate thumbnail: {str(e)}'}), 500
 
 @app.route('/check-keyframes/<code>')
 def check_keyframes(code):

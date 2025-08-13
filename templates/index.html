@@ -78,7 +78,7 @@
                         
                         <!-- Browse Videos Section -->
                         <div class="selection-section">
-                            <h4>Browse Videos (Click To Select, 🪞=Mirror,🐙=Control,🤝=Social)</h4>
+                            <h4>Browse Videos (Click To Select, 🪞=Mirror,🐙=Control,🐙🐙=Social)</h4>
                             <div id="availableCodesList" class="available-codes-list">
                                 <div id="codesGrid" class="codes-grid"></div>
                             </div>
@@ -90,21 +90,27 @@
                         <h3>Current Video</h3>
                         
                         <div class="current-video-info">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                                <div style="flex: 1;">
                                     <div class="video-name" id="currentVideoName">No video selected</div>
                                     <div class="video-status" id="currentVideoStatus"></div>
+                                    <div id="experimentTypeContainer" style="display: none; margin-top: 10px;">
+                                        <label class="experiment-type-label">
+                                            Experiment Type:
+                                            <select id="experimentTypeSelect">
+                                                <option value="" disabled selected>Select</option>
+                                                <option value="social">Social</option>
+                                                <option value="mirror">Mirror</option>
+                                                <option value="control">Control</option>
+                                            </select>
+                                        </label>
+                                    </div>
                                 </div>
-                                <div id="experimentTypeContainer" style="display: none;">
-                                    <label class="experiment-type-label">
-                                        Experiment Type:
-                                        <select id="experimentTypeSelect">
-                                            <option value="" disabled selected>Select type</option>
-                                            <option value="social">Social</option>
-                                            <option value="mirror">Mirror</option>
-                                            <option value="control">Control</option>
-                                        </select>
-                                    </label>
+                                <div class="video-thumbnail-container" id="videoThumbnailContainer" style="display: none;">
+                                    <div class="thumbnail-loading" id="thumbnailLoading">
+                                        <div class="thumbnail-spinner"></div>
+                                    </div>
+                                    <img class="video-thumbnail" id="videoThumbnail" alt="Video preview" style="display: none;">
                                 </div>
                             </div>
                         </div>
@@ -120,23 +126,24 @@
                                 </div>
                             </div>
                             
-                            <!-- Import Keyframes Section -->
-                            <div class="action-section">
-                                <button type="button" id="importKeyframesBtn" class="action-btn">
-                                    📁 Import Keyframes
-                                </button>
-                                <input type="file" id="keyframesFileInput" accept=".json" style="display: none;">
-                            </div>
-                            
-                            <!-- Keyframe Status -->
-                            <div class="keyframe-status" id="keyframeStatus"></div>
-                            
                             <!-- Load into OctoWatch -->
                             <div class="action-section">
                                 <button type="button" id="loadIntoOctoWatchBtn" class="action-btn primary" disabled>
                                     ▶️ Load into OctoWatch
                                 </button>
                                 <p class="help-text">Requires keyframes to visualize</p>
+                            </div>
+                            
+                                                        
+                            <!-- Keyframe Status -->
+                            <div class="keyframe-status" id="keyframeStatus"></div>
+
+                                 <!-- Import Keyframes Section -->
+                            <div class="action-section">
+                                <button type="button" id="importKeyframesBtn" class="action-btn">
+                                    📁 Import Keyframes
+                                </button>
+                                <input type="file" id="keyframesFileInput" accept=".json" style="display: none;">
                             </div>
                             
                             <!-- Unload Video -->
