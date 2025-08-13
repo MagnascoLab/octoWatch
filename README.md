@@ -115,7 +115,7 @@ You're ready to run the program!
    ```
 2. Press Enter
 3. You should see text that includes something like "Running on http://127.0.0.1:5172" or "Running on http://localhost:5172"
-4. Open your web browser (Chrome, Firefox, Safari, etc.)
+4. Open your web browser (Chrome is preferred)
 5. In the address bar, type exactly: `http://localhost:5172`
 6. Press Enter - OctoWatch should appear!
 7. Do NOT exit the terminal window - it needs to stay open while you use OctoWatch.
@@ -139,7 +139,7 @@ After the initial setup, starting OctoWatch is much easier:
    ```
    python app.py
    ```
-5. Open your browser and go to: `http://localhost:5172`
+5. Open your browser (Chrome is preferred) and go to: `http://localhost:5172`
 
 ### Stopping OctoWatch
 When you're done using OctoWatch:
