@@ -608,10 +608,12 @@ export class WebGLRenderer {
         const leftData = new Uint8Array(data.leftHeatmap.length);
         const rightData = new Uint8Array(data.rightHeatmap.length);
         for (let i = 0; i < data.leftHeatmap.length; i++) {
-           leftData[i] = Math.floor(data.leftHeatmap[i] * 255);
-            rightData[i] = Math.floor(data.rightHeatmap[i] * 255);
-
+            leftData[i] = Math.floor(data.leftHeatmap[i] * 255);
         }
+        for (let i = 0; i < data.rightHeatmap.length; i++) {
+            rightData[i] = Math.floor(data.rightHeatmap[i] * 255);
+        }
+        // Set texture parameters for both textures
         [this.leftHeatmapTexture, this.rightHeatmapTexture].forEach(texture => {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -619,14 +621,15 @@ export class WebGLRenderer {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         });
-        // Update left heatmap texture with byte data
+        
+        // Update left heatmap texture with byte data using left-specific width
         gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
         gl.bindTexture(gl.TEXTURE_2D, this.leftHeatmapTexture);
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
             gl.LUMINANCE,
-            data.heatmapWidth,
+            data.leftHeatmapWidth || data.heatmapWidth,  // Use left-specific width
             data.heatmapHeight,
             0,
             gl.LUMINANCE,
@@ -634,13 +637,13 @@ export class WebGLRenderer {
             leftData
         );
         
-        // Update right heatmap texture with byte data
+        // Update right heatmap texture with byte data using right-specific width
         gl.bindTexture(gl.TEXTURE_2D, this.rightHeatmapTexture);
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
             gl.LUMINANCE,
-            data.heatmapWidth,
+            data.rightHeatmapWidth || data.heatmapWidth,  // Use right-specific width
             data.heatmapHeight,
             0,
             gl.LUMINANCE,
@@ -648,7 +651,7 @@ export class WebGLRenderer {
             rightData
         );
         
-        // Set texture parameters for both textures
+        // Restore default alignment
         gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
         
         gl.bindTexture(gl.TEXTURE_2D, null);

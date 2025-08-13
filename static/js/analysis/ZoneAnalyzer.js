@@ -18,9 +18,12 @@ export class ZoneAnalyzer {
         // Zone data storage
         this.leftZoneData = null;
         this.rightZoneData = null;
+        this.overlapZoneData = null;
         
         // Zone definitions
-        this.zones = ['D', 'MP', 'H1', 'H2', 'T', 'B'];
+        this.zones = ['D', 'MP', 'H1', 'H2', 'T', 'B', 'H1T', 'H1B', 'H2T', 'H2B', 'MPT', 'MPB'];
+        // Overlap zones (when both octopuses are in same zone)
+        this.overlapZones = ['DO', 'MPO', 'H1O', 'H2O', 'TO', 'BO', 'H1TO', 'H1BO', 'H2TO', 'H2BO', 'MPTO', 'MPBO'];
         this.mpThreshold = 1/12; // Distance threshold for mirror partition zone
         
         this.setupEventListeners();
@@ -58,13 +61,20 @@ export class ZoneAnalyzer {
         // Initialize zone counters and frame assignments
         const leftZoneCounts = {};
         const rightZoneCounts = {};
+        const overlapZoneCounts = {};
         const leftFrameZones = new Array(totalFrames);
         const rightFrameZones = new Array(totalFrames);
+        const overlapFrameZones = new Array(totalFrames);
         
         // Initialize counters for all zone combinations
         this.zones.forEach(zone => {
             leftZoneCounts[zone] = 0;
             rightZoneCounts[zone] = 0;
+        });
+        
+        // Initialize overlap zone counters
+        this.overlapZones.forEach(zone => {
+            overlapZoneCounts[zone] = 0;
         });
         
         // Process each frame
@@ -73,9 +83,19 @@ export class ZoneAnalyzer {
             const leftZoneFractions = this.getZonesForFrame(frame, 'left', tankInfo);
             const rightZoneFractions = this.getZonesForFrame(frame, 'right', tankInfo);
             
+            // Calculate overlap fractions using geometric mean
+            const overlapFractions = {};
+            for (const zone of this.zones) {
+                const overlapZone = zone + 'O';
+                overlapFractions[overlapZone] = Math.sqrt(
+                    leftZoneFractions[zone] * rightZoneFractions[zone]
+                );
+            }
+            
             // Store frame assignments
             leftFrameZones[frame] = leftZoneFractions;
             rightFrameZones[frame] = rightZoneFractions;
+            overlapFrameZones[frame] = overlapFractions;
             
             // Add fractional counts
             for (const [zone, fraction] of Object.entries(leftZoneFractions)) {
@@ -88,15 +108,25 @@ export class ZoneAnalyzer {
                     rightZoneCounts[zone] += fraction;
                 }
             }
+            for (const [zone, fraction] of Object.entries(overlapFractions)) {
+                if (fraction > 0) {
+                    overlapZoneCounts[zone] += fraction;
+                }
+            }
         }
         
         // Calculate percentages
         const leftPercentages = {};
         const rightPercentages = {};
+        const overlapPercentages = {};
         
         this.zones.forEach(zone => {
             leftPercentages[zone] = (leftZoneCounts[zone] / totalFrames) * 100;
             rightPercentages[zone] = (rightZoneCounts[zone] / totalFrames) * 100;
+        });
+        
+        this.overlapZones.forEach(zone => {
+            overlapPercentages[zone] = (overlapZoneCounts[zone] / totalFrames) * 100;
         });
         
         // Store results
@@ -114,15 +144,24 @@ export class ZoneAnalyzer {
             totalFrames: totalFrames
         };
         
+        this.overlapZoneData = {
+            counts: overlapZoneCounts,
+            percentages: overlapPercentages,
+            frameAssignments: overlapFrameZones,
+            totalFrames: totalFrames
+        };
+        
         // Emit event
         this.eventBus.emit(Events.ZONE_ANALYSIS_CALCULATED, {
             left: this.leftZoneData,
-            right: this.rightZoneData
+            right: this.rightZoneData,
+            overlap: this.overlapZoneData
         });
         
         return {
             left: this.leftZoneData,
-            right: this.rightZoneData
+            right: this.rightZoneData,
+            overlap: this.overlapZoneData
         };
     }
 
@@ -143,7 +182,13 @@ export class ZoneAnalyzer {
             'H1': 0,
             'H2': 0,
             'T': 0,
-            'B': 0
+            'B': 0,
+            'H1T': 0,
+            'H1B': 0,
+            'H2T': 0,
+            'H2B': 0,
+            'MPT': 0,
+            'MPB': 0
         };
         
         // Check for den (no detection)
@@ -196,6 +241,16 @@ export class ZoneAnalyzer {
         const verticalFractions = this.calculateVerticalZoneFractions(bbox, tankCenterY);
         zoneFractions['T'] = verticalFractions.T;
         zoneFractions['B'] = verticalFractions.B;
+        
+        // Calculate quadrant fractions as products of horizontal and vertical fractions
+        zoneFractions['H1T'] = zoneFractions['H1'] * zoneFractions['T'];
+        zoneFractions['H1B'] = zoneFractions['H1'] * zoneFractions['B'];
+        zoneFractions['H2T'] = zoneFractions['H2'] * zoneFractions['T'];
+        zoneFractions['H2B'] = zoneFractions['H2'] * zoneFractions['B'];
+        
+        // Calculate MP subdivisions (MP is binary, so MPT = MP * T, MPB = MP * B)
+        zoneFractions['MPT'] = zoneFractions['MP'] * zoneFractions['T'];
+        zoneFractions['MPB'] = zoneFractions['MP'] * zoneFractions['B'];
         
         return zoneFractions;
     }
@@ -371,5 +426,6 @@ export class ZoneAnalyzer {
     clear() {
         this.leftZoneData = null;
         this.rightZoneData = null;
+        this.overlapZoneData = null;
     }
 }

@@ -133,6 +133,7 @@ export class UIManager {
             zoneAnalysisContainer: document.getElementById('zoneAnalysisContainer'),
             leftZoneDisplay: document.getElementById('leftZoneDisplay'),
             rightZoneDisplay: document.getElementById('rightZoneDisplay'),
+            overlapZoneDisplay: document.getElementById('overlapZoneDisplay'),
             toggleZoneVisualization: document.getElementById('toggleZoneVisualization'),
             
             // Sections
@@ -476,8 +477,7 @@ export class UIManager {
         if (this.elements.exportPostfix) {
             this.elements.exportPostfix.addEventListener('input', (e) => {
                 // Remove non-alphanumeric characters and limit to 8 chars
-                const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-                e.target.value = value;
+                const value = e.target.value;
                 
                 // Save to localStorage and update DataExporter
                 localStorage.setItem('exportPostfix', value);
@@ -1179,14 +1179,15 @@ export class UIManager {
 
     /**
      * Display zone analysis results
-     * @param {Object} data - Zone analysis data with left and right percentages
+     * @param {Object} data - Zone analysis data with left, right, and overlap percentages
      */
     displayZoneAnalysis(data) {
         if (!data || !data.left || !data.right) return;
         
-        // Zones arranged in two rows of three
+        // Zones arranged in three rows
         const zonesRow1 = ['MP', 'H1', 'H2'];
         const zonesRow2 = ['D', 'T', 'B'];
+        const zonesRow3 = ['H1T', 'H1B', 'H2T', 'H2B'];
         
         // Format left side zones as table rows
         this.elements.leftZoneDisplay.innerHTML = '';
@@ -1213,6 +1214,25 @@ export class UIManager {
         });
         this.elements.leftZoneDisplay.appendChild(leftRow2);
         
+        // Third row - quadrants (2x2 layout in 3 columns)
+        const leftRow3 = document.createElement('tr');
+        // H1T and H1B in first column
+        const td1 = document.createElement('td');
+        td1.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        td1.innerHTML = `<b>H1T</b>:${data.left.percentages.H1T !== undefined ? data.left.percentages.H1T.toFixed(1) : '-'}<br><b>H1B</b>:${data.left.percentages.H1B !== undefined ? data.left.percentages.H1B.toFixed(1) : '-'}`;
+        leftRow3.appendChild(td1);
+        // H2T and H2B in second column
+        const td2 = document.createElement('td');
+        td2.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        td2.innerHTML = `<b>H2T</b>:${data.left.percentages.H2T !== undefined ? data.left.percentages.H2T.toFixed(1) : '-'}<br><b>H2B</b>:${data.left.percentages.H2B !== undefined ? data.left.percentages.H2B.toFixed(1) : '-'}`;
+        leftRow3.appendChild(td2);
+        // MPT and MPB in third column
+        const td3 = document.createElement('td');
+        td3.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        td3.innerHTML = `<b>MPT</b>:${data.left.percentages.MPT !== undefined ? data.left.percentages.MPT.toFixed(1) : '-'}<br><b>MPB</b>:${data.left.percentages.MPB !== undefined ? data.left.percentages.MPB.toFixed(1) : '-'}`;
+        leftRow3.appendChild(td3);
+        this.elements.leftZoneDisplay.appendChild(leftRow3);
+        
         // Format right side zones as table rows
         this.elements.rightZoneDisplay.innerHTML = '';
         
@@ -1237,6 +1257,73 @@ export class UIManager {
             rightRow2.appendChild(td);
         });
         this.elements.rightZoneDisplay.appendChild(rightRow2);
+        
+        // Third row - quadrants (2x2 layout in 3 columns)
+        const rightRow3 = document.createElement('tr');
+        // H1T and H1B in first column
+        const rtd1 = document.createElement('td');
+        rtd1.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        rtd1.innerHTML = `<b>H1T</b>:${data.right.percentages.H1T !== undefined ? data.right.percentages.H1T.toFixed(1) : '-'}<br><b>H1B</b>:${data.right.percentages.H1B !== undefined ? data.right.percentages.H1B.toFixed(1) : '-'}`;
+        rightRow3.appendChild(rtd1);
+        // H2T and H2B in second column
+        const rtd2 = document.createElement('td');
+        rtd2.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        rtd2.innerHTML = `<b>H2T</b>:${data.right.percentages.H2T !== undefined ? data.right.percentages.H2T.toFixed(1) : '-'}<br><b>H2B</b>:${data.right.percentages.H2B !== undefined ? data.right.percentages.H2B.toFixed(1) : '-'}`;
+        rightRow3.appendChild(rtd2);
+        // MPT and MPB in third column
+        const rtd3 = document.createElement('td');
+        rtd3.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+        rtd3.innerHTML = `<b>MPT</b>:${data.right.percentages.MPT !== undefined ? data.right.percentages.MPT.toFixed(1) : '-'}<br><b>MPB</b>:${data.right.percentages.MPB !== undefined ? data.right.percentages.MPB.toFixed(1) : '-'}`;
+        rightRow3.appendChild(rtd3);
+        this.elements.rightZoneDisplay.appendChild(rightRow3);
+        
+        // Display overlap zones if available
+        if (data.overlap && this.elements.overlapZoneDisplay) {
+            this.elements.overlapZoneDisplay.innerHTML = '';
+            
+            // First row - basic overlap zones
+            const overlapRow1 = document.createElement('tr');
+            const overlapZones1 = ['MPO', 'H1O', 'H2O'];
+            overlapZones1.forEach(zone => {
+                const percentage = data.overlap.percentages[zone];
+                const td = document.createElement('td');
+                td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+                td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+                overlapRow1.appendChild(td);
+            });
+            this.elements.overlapZoneDisplay.appendChild(overlapRow1);
+            
+            // Second row - basic vertical and den overlap
+            const overlapRow2 = document.createElement('tr');
+            const overlapZones2 = ['DO', 'TO', 'BO'];
+            overlapZones2.forEach(zone => {
+                const percentage = data.overlap.percentages[zone];
+                const td = document.createElement('td');
+                td.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white;';
+                td.innerHTML = `<b>${zone}</b>:${percentage !== undefined ? percentage.toFixed(1) : '-'}`;
+                overlapRow2.appendChild(td);
+            });
+            this.elements.overlapZoneDisplay.appendChild(overlapRow2);
+            
+            // Third row - quadrant overlaps and MP subdivisions
+            const overlapRow3 = document.createElement('tr');
+            // H1TO and H1BO in first column
+            const otd1 = document.createElement('td');
+            otd1.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+            otd1.innerHTML = `<b>H1TO</b>:${data.overlap.percentages.H1TO !== undefined ? data.overlap.percentages.H1TO.toFixed(1) : '-'}<br><b>H1BO</b>:${data.overlap.percentages.H1BO !== undefined ? data.overlap.percentages.H1BO.toFixed(1) : '-'}`;
+            overlapRow3.appendChild(otd1);
+            // H2TO and H2BO in second column
+            const otd2 = document.createElement('td');
+            otd2.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+            otd2.innerHTML = `<b>H2TO</b>:${data.overlap.percentages.H2TO !== undefined ? data.overlap.percentages.H2TO.toFixed(1) : '-'}<br><b>H2BO</b>:${data.overlap.percentages.H2BO !== undefined ? data.overlap.percentages.H2BO.toFixed(1) : '-'}`;
+            overlapRow3.appendChild(otd2);
+            // MPTO and MPBO in third column
+            const otd3 = document.createElement('td');
+            otd3.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
+            otd3.innerHTML = `<b>MPTO</b>:${data.overlap.percentages.MPTO !== undefined ? data.overlap.percentages.MPTO.toFixed(1) : '-'}<br><b>MPBO</b>:${data.overlap.percentages.MPBO !== undefined ? data.overlap.percentages.MPBO.toFixed(1) : '-'}`;
+            overlapRow3.appendChild(otd3);
+            this.elements.overlapZoneDisplay.appendChild(overlapRow3);
+        }
     }
     
     /**

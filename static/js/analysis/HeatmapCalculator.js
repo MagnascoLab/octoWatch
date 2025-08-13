@@ -17,7 +17,9 @@ export class HeatmapCalculator {
         // Heatmap data
         this.leftHeatmap = null;
         this.rightHeatmap = null;
-        this.heatmapWidth = 0;
+        this.heatmapWidth = 0;  // Maximum of left and right widths
+        this.leftHeatmapWidth = 0;  // Width for left side
+        this.rightHeatmapWidth = 0;  // Width for right side
         this.heatmapHeight = 0;
         this.leftMaxValue = 0;
         this.rightMaxValue = 0;
@@ -59,23 +61,29 @@ export class HeatmapCalculator {
         const tankInfo = this.keyframesData.tank_info;
         const totalFrames = videoInfo.total_frames_processed;
         
-        // Calculate heatmap dimensions (half tank width for each side)
-        const tankWidth = tankInfo.bbox.x_max - tankInfo.bbox.x_min;
+        // Calculate heatmap dimensions based on actual tank sides
         const tankHeight = tankInfo.bbox.y_max - tankInfo.bbox.y_min;
+        const tankCenterX = tankInfo.bbox.center_x;
         
-        // Use video resolution to determine heatmap resolution
-        this.heatmapWidth = Math.floor(tankWidth / 2);
+        // Calculate width for each side based on centerX
+        const leftWidth = tankCenterX - tankInfo.bbox.x_min;
+        const rightWidth = tankInfo.bbox.x_max - tankCenterX;
+        
+        // Store individual widths and calculate maximum
+        this.leftHeatmapWidth = Math.floor(leftWidth);
+        this.rightHeatmapWidth = Math.floor(rightWidth);
+        this.heatmapWidth = Math.max(this.leftHeatmapWidth, this.rightHeatmapWidth);
         this.heatmapHeight = Math.floor(tankHeight);
         
-        // Initialize heatmaps
-        const heatmapSize = this.heatmapWidth * this.heatmapHeight;
-        this.leftHeatmap = new Float32Array(heatmapSize);
-        this.rightHeatmap = new Float32Array(heatmapSize);
+        // Initialize heatmaps with their respective sizes
+        const leftHeatmapSize = this.leftHeatmapWidth * this.heatmapHeight;
+        const rightHeatmapSize = this.rightHeatmapWidth * this.heatmapHeight;
+        this.leftHeatmap = new Float32Array(leftHeatmapSize);
+        this.rightHeatmap = new Float32Array(rightHeatmapSize);
         
         // Tank boundaries in normalized coordinates
         const tankLeft = tankInfo.bbox.x_min;
         const tankTop = tankInfo.bbox.y_min;
-        const tankCenterX = tankInfo.bbox.center_x;
         const fps = videoInfo.fps;
         // Process each frame
         let frame = 0;
@@ -95,6 +103,7 @@ export class HeatmapCalculator {
                     tankCenterX,
                     videoInfo.width,
                     videoInfo.height,
+                    this.leftHeatmapWidth,
                     step 
                 );
             }
@@ -111,6 +120,7 @@ export class HeatmapCalculator {
                     tankInfo.bbox.x_max,
                     videoInfo.width,
                     videoInfo.height,
+                    this.rightHeatmapWidth,
                     step
                 );
             }
@@ -124,6 +134,8 @@ export class HeatmapCalculator {
             leftHeatmap: this.leftHeatmap,
             rightHeatmap: this.rightHeatmap,
             heatmapWidth: this.heatmapWidth,
+            leftHeatmapWidth: this.leftHeatmapWidth,
+            rightHeatmapWidth: this.rightHeatmapWidth,
             heatmapHeight: this.heatmapHeight,
             leftMaxValue: this.leftMaxValue,
             rightMaxValue: this.rightMaxValue
@@ -133,6 +145,8 @@ export class HeatmapCalculator {
             leftHeatmap: this.leftHeatmap,
             rightHeatmap: this.rightHeatmap,
             heatmapWidth: this.heatmapWidth,
+            leftHeatmapWidth: this.leftHeatmapWidth,
+            rightHeatmapWidth: this.rightHeatmapWidth,
             heatmapHeight: this.heatmapHeight,
             leftMaxValue: this.leftMaxValue,
             rightMaxValue: this.rightMaxValue
@@ -149,8 +163,10 @@ export class HeatmapCalculator {
      * @param {number} sideRight - Side right boundary (normalized)
      * @param {number} videoWidth - Video width in pixels
      * @param {number} videoHeight - Video height in pixels
+     * @param {number} sideHeatmapWidth - Width of this side's heatmap
+     * @param {number} strength - Strength of the heatmap addition
      */
-    addBboxToHeatmap(bbox, heatmap, tankLeft, tankTop, sideLeft, sideRight, videoWidth, videoHeight, strength) {
+    addBboxToHeatmap(bbox, heatmap, tankLeft, tankTop, sideLeft, sideRight, videoWidth, videoHeight, sideHeatmapWidth, strength) {
         // Convert normalized bbox to pixel coordinates relative to the side
         const sideWidth = sideRight - sideLeft;
         // Convert to pixel coordinates in video space
@@ -159,13 +175,13 @@ export class HeatmapCalculator {
         const bboxTopPx = bbox.y_min * videoHeight;
         const bboxBottomPx = bbox.y_max * videoHeight;
         // Convert to heatmap coordinates (relative to side)
-        const heatmapLeft = Math.floor((bboxLeftPx - sideLeft) / sideWidth * this.heatmapWidth);
-        const heatmapRight = Math.ceil((bboxRightPx - sideLeft) / sideWidth * this.heatmapWidth);
+        const heatmapLeft = Math.floor((bboxLeftPx - sideLeft) / sideWidth * sideHeatmapWidth);
+        const heatmapRight = Math.ceil((bboxRightPx - sideLeft) / sideWidth * sideHeatmapWidth);
         const heatmapTop = Math.floor(bboxTopPx - tankTop);
         const heatmapBottom = Math.ceil(bboxBottomPx - tankTop);
         // Clamp to heatmap bounds
         const x1 = Math.max(0, heatmapLeft);
-        const x2 = Math.min(this.heatmapWidth - 1, heatmapRight);
+        const x2 = Math.min(sideHeatmapWidth - 1, heatmapRight);
         const y1 = Math.max(0, heatmapTop);
         const y2 = Math.min(this.heatmapHeight - 1, heatmapBottom);
         // Increment pixels in the bounding box
@@ -186,7 +202,7 @@ export class HeatmapCalculator {
                 const radius = Math.min(2 * Math.sqrt(xPercentMinusHalf * xPercentMinusHalf + yPercentMinusHalf * yPercentMinusHalf), 1);
                 
                 const intensity = (1 - radius) * (1 - radius); // Falloff from center
-                const idx = y * this.heatmapWidth + x;
+                const idx = y * sideHeatmapWidth + x;
                 heatmap[idx] += intensity * strength;
             }
         }
@@ -228,7 +244,9 @@ export class HeatmapCalculator {
         return {
             leftHeatmap: this.leftHeatmap,
             rightHeatmap: this.rightHeatmap,
-            heatmapWidth: this.heatmapWidth,
+            heatmapWidth: this.heatmapWidth,  // Maximum of left and right widths
+            leftHeatmapWidth: this.leftHeatmapWidth,
+            rightHeatmapWidth: this.rightHeatmapWidth,
             heatmapHeight: this.heatmapHeight,
             leftMaxValue: this.leftMaxValue,
             rightMaxValue: this.rightMaxValue
@@ -250,6 +268,8 @@ export class HeatmapCalculator {
         this.leftHeatmap = null;
         this.rightHeatmap = null;
         this.heatmapWidth = 0;
+        this.leftHeatmapWidth = 0;
+        this.rightHeatmapWidth = 0;
         this.heatmapHeight = 0;
         this.leftMaxValue = 0;
         this.rightMaxValue = 0;

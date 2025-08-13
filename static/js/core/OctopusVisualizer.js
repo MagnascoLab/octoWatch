@@ -753,18 +753,15 @@ export class OctopusVisualizer {
      */
     downloadHeatmaps() {
         if (!this.heatmapCalculator.isCalculated()) {
-            console.warn('No heatmaps to download');
-            return;
+            //console.warn('No heatmaps to download');
+            //return;
+            this.heatmapCalculator.calculateHeatmaps();
+
         }
-        
+        //console.log(this.keyframesData.tank_info.bbox.x_min, this.keyframesData.tank_info.bbox.center_x);
+        const isMirror = this.keyframesData.tank_info.bbox.x_min === this.keyframesData.tank_info.bbox.center_x;
         const heatmapData = this.heatmapCalculator.getHeatmapData();
-        const { leftHeatmap, rightHeatmap, heatmapWidth, heatmapHeight } = heatmapData;
-        
-        // Create canvas for rendering
-        const canvas = document.createElement('canvas');
-        canvas.width = heatmapWidth;
-        canvas.height = heatmapHeight;
-        const ctx = canvas.getContext('2d');
+        const { leftHeatmap, rightHeatmap, leftHeatmapWidth, rightHeatmapWidth, heatmapWidth, heatmapHeight } = heatmapData;
         
         // Get base filename without extension
         const baseFilename = this.videoFilename ? 
@@ -781,13 +778,29 @@ export class OctopusVisualizer {
             `${baseFilename}_heatmap_right_${postfix}.png` : 
             `${baseFilename}_heatmap_right.png`;
         
-        // Download left heatmap
-        this.renderHeatmapToCanvas(ctx, leftHeatmap, heatmapWidth, heatmapHeight);
-        this.downloadCanvas(canvas, leftFilename);
+        // Download left heatmap (only if not mirror)
+        if (!isMirror) {
+            // Create canvas with left-specific dimensions
+            const leftCanvas = document.createElement('canvas');
+            const leftWidth = leftHeatmapWidth || heatmapWidth;
+            leftCanvas.width = leftWidth;
+            leftCanvas.height = heatmapHeight;
+            const leftCtx = leftCanvas.getContext('2d');
+            
+            this.renderHeatmapToCanvas(leftCtx, leftHeatmap, leftWidth, heatmapHeight);
+            this.downloadCanvas(leftCanvas, leftFilename);
+        }
         
         // Download right heatmap
-        this.renderHeatmapToCanvas(ctx, rightHeatmap, heatmapWidth, heatmapHeight);
-        this.downloadCanvas(canvas, rightFilename);
+        // Create canvas with right-specific dimensions
+        const rightCanvas = document.createElement('canvas');
+        const rightWidth = rightHeatmapWidth || heatmapWidth;
+        rightCanvas.width = rightWidth;
+        rightCanvas.height = heatmapHeight;
+        const rightCtx = rightCanvas.getContext('2d');
+        
+        this.renderHeatmapToCanvas(rightCtx, rightHeatmap, rightWidth, heatmapHeight);
+        this.downloadCanvas(rightCanvas, rightFilename);
     }
     
     /**
