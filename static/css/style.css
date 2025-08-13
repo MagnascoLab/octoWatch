@@ -494,12 +494,11 @@ h1 {
 }
 
 .code-needs-detection {
-    border-color: #ffc107;
-    background-color: #fffcf5;
+    border-color: #808080;
+    background-color: #f8f8f8;
 }
-
 .code-needs-detection:hover {
-    border-color: #e0a800;
+    border-color: #606060;
 }
 
 .code-number {

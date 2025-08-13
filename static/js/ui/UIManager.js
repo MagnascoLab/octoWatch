@@ -943,7 +943,7 @@ export class UIManager {
             
             const statusIcon = document.createElement('div');
             statusIcon.className = 'code-status-icon';
-            statusIcon.textContent = codeInfo.has_keyframes ? '✅' : '🟡';
+            statusIcon.textContent = codeInfo.has_keyframes ? '✅' : '⚪️';
             statusIcon.title = codeInfo.has_keyframes ? 'Ready to load' : 'Needs detection';
             
             // Add mirror indicator if video is mirrored
