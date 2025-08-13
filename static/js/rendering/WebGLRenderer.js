@@ -16,6 +16,10 @@ export class WebGLRenderer {
         this.eventBus = eventBus;
         this.gl = null;
         
+        // Text overlay canvas for zone labels
+        this.textCanvas = document.getElementById('textOverlayCanvas');
+        this.textCtx = this.textCanvas ? this.textCanvas.getContext('2d') : null;
+        
         // Shader programs
         this.shaderProgram = null;
         this.trajectoryLineShaderProgram = null;
@@ -334,7 +338,7 @@ export class WebGLRenderer {
         // Zone boundary color (semi-transparent gray)
         const zoneColor = [0.5, 0.5, 0.5, 0.5];
         const labelColor = [0.3, 0.3, 0.3, 0.8];
-        const mpZoneColor = [0.8, 0.5, 0.2, 0.5]; // Orange color for MP zones
+        const mpZoneColor = [0.2, 0.5, 0.8, 0.5]; // Orange color for MP zones
         
         // Draw horizontal center line (for T/B zones)
         this.drawLine(tankLeft, tankCenterY, tankRight, tankCenterY, zoneColor);
@@ -370,9 +374,152 @@ export class WebGLRenderer {
         const thickColor = [0.3, 0.3, 0.3, 0.7];
         
         // Draw center partition with thicker line
-        gl.lineWidth(2.0);
+       /* gl.lineWidth(2.0);
         this.drawLine(tankCenterX, tankTop, tankCenterX, tankBottom, thickColor);
-        gl.lineWidth(1.0);
+        gl.lineWidth(1.0);*/
+    }
+    
+    /**
+     * Draw zone labels on text overlay canvas
+     * @param {Object} tankBbox - Tank bounding box
+     * @param {number} scaleX - X scale factor
+     * @param {number} scaleY - Y scale factor
+     */
+    drawZoneLabels(tankBbox, scaleX, scaleY) {
+        if (!this.textCtx || !this.textCanvas) return;
+        
+        // Clear previous labels
+        this.textCtx.clearRect(0, 0, this.textCanvas.width, this.textCanvas.height);
+        
+        // Calculate tank dimensions in canvas coordinates
+        const tankLeft = tankBbox.x_min * scaleX;
+        const tankTop = tankBbox.y_min * scaleY;
+        const tankRight = tankBbox.x_max * scaleX;
+        const tankBottom = tankBbox.y_max * scaleY;
+        const tankCenterX = tankBbox.center_x * scaleX;
+        const tankCenterY = (tankTop + tankBottom) / 2;
+        
+        // Calculate zone boundaries
+        const leftHalf = (tankCenterX - tankLeft) / 2;
+        const leftMidpoint = tankLeft + leftHalf;
+        const rightHalf = (tankRight - tankCenterX) / 2;
+        const rightMidpoint = tankCenterX + rightHalf;
+        
+        // MP zone boundaries
+        const mpThreshold = 1/12;
+        const leftHalfWidth = tankCenterX - tankLeft;
+        const rightHalfWidth = tankRight - tankCenterX;
+        const leftMPBoundary = tankCenterX - (mpThreshold * leftHalfWidth);
+        const rightMPBoundary = tankCenterX + (mpThreshold * rightHalfWidth);
+        
+        // Set font style
+        const fontSize = Math.min(this.textCanvas.width, this.textCanvas.height) * 0.02;
+        this.textCtx.font = `bold ${fontSize}px Arial`;
+        this.textCtx.textAlign = 'center';
+        this.textCtx.textBaseline = 'middle';
+        
+        // Label style with semi-transparent background
+        const drawLabel = (x, y, text, bgColor = 'rgba(255, 255, 255, 0.7)') => {
+            // Measure text
+            const metrics = this.textCtx.measureText(text);
+            const padding = fontSize * 0.3;
+            
+            // Draw background
+            this.textCtx.fillStyle = bgColor;
+            this.textCtx.fillRect(
+                x - metrics.width/2 - padding,
+                y - fontSize/2 - padding,
+                metrics.width + padding * 2,
+                fontSize + padding * 2
+            );
+            
+            // Draw text
+            this.textCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.textCtx.fillText(text, x, y);
+        };
+        
+        // Left side labels
+        // H2-T (outer top)
+        drawLabel(
+            (tankLeft + leftMidpoint) / 2,
+            (tankTop + tankCenterY) / 2,
+            'H2-T'
+        );
+        
+        // H2-B (outer bottom)
+        drawLabel(
+            (tankLeft + leftMidpoint) / 2,
+            (tankCenterY + tankBottom) / 2,
+            'H2-B'
+        );
+        
+        // H1-T (inner top)
+        drawLabel(
+            (leftMidpoint + leftMPBoundary) / 2,
+            (tankTop + tankCenterY) / 2,
+            'H1-T'
+        );
+        
+        // H1-B (inner bottom)
+        drawLabel(
+            (leftMidpoint + leftMPBoundary) / 2,
+            (tankCenterY + tankBottom) / 2,
+            'H1-B'
+        );
+        
+        // Left MP zone
+        drawLabel(
+            (leftMPBoundary + tankCenterX) / 2,
+            tankCenterY,
+            'MP',
+            'rgba(150, 200, 255, 0.7)'
+        );
+        
+        // Right side labels
+        // H1-T (inner top)
+        drawLabel(
+            (rightMPBoundary + rightMidpoint) / 2,
+            (tankTop + tankCenterY) / 2,
+            'H1-T'
+        );
+        
+        // H1-B (inner bottom)
+        drawLabel(
+            (rightMPBoundary + rightMidpoint) / 2,
+            (tankCenterY + tankBottom) / 2,
+            'H1-B'
+        );
+        
+        // H2-T (outer top)
+        drawLabel(
+            (rightMidpoint + tankRight) / 2,
+            (tankTop + tankCenterY) / 2,
+            'H2-T'
+        );
+        
+        // H2-B (outer bottom)
+        drawLabel(
+            (rightMidpoint + tankRight) / 2,
+            (tankCenterY + tankBottom) / 2,
+            'H2-B'
+        );
+        
+        // Right MP zone
+        drawLabel(
+            (tankCenterX + rightMPBoundary) / 2,
+            tankCenterY,
+            'MP',
+            'rgba(150, 200, 255, 0.7)'
+        );
+    }
+    
+    /**
+     * Clear zone labels from text overlay canvas
+     */
+    clearZoneLabels() {
+        if (this.textCtx && this.textCanvas) {
+            this.textCtx.clearRect(0, 0, this.textCanvas.width, this.textCanvas.height);
+        }
     }
     
     /**

@@ -37,6 +37,7 @@ export class OctopusVisualizer {
         // Get DOM elements
         this.videoPlayer = document.getElementById('videoPlayer');
         this.canvas = document.getElementById('overlayCanvas');
+        this.textCanvas = document.getElementById('textOverlayCanvas');
         this.heatmapCanvas = document.getElementById('activityHeatmap');
         
         // State
@@ -382,6 +383,12 @@ export class OctopusVisualizer {
         const rect = this.videoController.getVideoRect();
         this.webglRenderer.resize(rect.width, rect.height);
         
+        // Resize text overlay canvas
+        if (this.textCanvas) {
+            this.textCanvas.width = rect.width;
+            this.textCanvas.height = rect.height;
+        }
+        
         if (this.activityAnalyzer.getActivityData().leftActivityData) {
             this.heatmapRenderer.render();
         }
@@ -480,7 +487,11 @@ export class OctopusVisualizer {
         // Draw zone boundaries if enabled
         if (uiState.showZoneVisualization) {
             this.webglRenderer.drawZoneBoundaries(tankBbox, scaleX, scaleY);
+            this.webglRenderer.drawZoneLabels(tankBbox, scaleX, scaleY);
             this.performanceMonitor.incrementDrawCalls();
+        } else {
+            // Clear zone labels when visualization is disabled
+            this.webglRenderer.clearZoneLabels();
         }
         
         // Collect current bounding boxes for interaction
