@@ -151,7 +151,7 @@ When you're done using OctoWatch:
 ### Updating OctoWatch
 To keep OctoWatch up-to-date, you can run the following commands periodically:
 1. Open your terminal
-2. Navigate to the OctoWatch folder
+2. Navigate to the OctoWatch folder (type `cd octoWatch` and press Enter)
 3. Run the following commands - this will pull the latest changes from the GitHub repository and update your environment:
    ```
    git pull
