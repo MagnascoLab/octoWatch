@@ -5,3 +5,5 @@ __pycache__/
 uploads/
 videos/
 videos_keyframes/
+thumbnails/*
+!thumbnails/.gitkeep
