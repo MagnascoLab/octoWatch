@@ -826,7 +826,7 @@ export class OctopusVisualizer {
                 let color;
                 if (useViridis) {
                     // Use viridis colormap
-                    color = viridis(value);
+                    color = viridis(Math.sqrt(value));
                 } else {
                     // Use white-to-blue gradient (matching the shader)
                     const sqrtValue = Math.sqrt(value);

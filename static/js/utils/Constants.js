@@ -162,7 +162,7 @@ export const SHADERS = {
             float value = texture2D(u_heatmap, v_texCoord).r;
             vec3 color;
             if (u_useViridis > 0.5) {
-                color = viridis(value);
+                color = viridis(sqrt(value));
             } else {
                 color = mix(vec3(1.0), vec3(0.0, 0.0, 0.7), sqrt(value)); // From white to blue
             }
