@@ -23,7 +23,7 @@ export class ZoneAnalyzer {
         // Zone definitions
         this.zones = ['D', 'MP', 'H1', 'H2', 'T', 'B', 'H1T', 'H1B', 'H2T', 'H2B', 'MPT', 'MPB'];
         // Overlap zones (when both octopuses are in same zone)
-        this.overlapZones = ['DO', 'MPO', 'H1O', 'H2O', 'TO', 'BO', 'H1TO', 'H1BO', 'H2TO', 'H2BO', 'MPTO', 'MPBO'];
+        this.overlapZones = ['D', 'MP', 'H1', 'H2', 'T', 'B', 'H1T', 'H1B', 'H2T', 'H2B', 'MPT', 'MPB'];
         this.mpThreshold = 1/12; // Distance threshold for mirror partition zone
         
         this.setupEventListeners();
@@ -86,7 +86,7 @@ export class ZoneAnalyzer {
             // Calculate overlap fractions using geometric mean
             const overlapFractions = {};
             for (const zone of this.zones) {
-                const overlapZone = zone + 'O';
+                const overlapZone = zone;
                 overlapFractions[overlapZone] = Math.sqrt(
                     leftZoneFractions[zone] * rightZoneFractions[zone]
                 );

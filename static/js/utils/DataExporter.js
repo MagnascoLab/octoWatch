@@ -352,18 +352,18 @@ export class DataExporter {
         // Add overlap data if available
         if (zoneData.overlap) {
             csv += 'Overlap,';
-            csv += `${zoneData.overlap.percentages.DO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.MPO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H1O.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H2O.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.TO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.BO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H1TO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H1BO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H2TO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.H2BO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.MPTO.toFixed(2)},`;
-            csv += `${zoneData.overlap.percentages.MPBO.toFixed(2)}`;
+            csv += `${zoneData.overlap.percentages.D.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.MP.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H1.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H2.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.T.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.B.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H1T.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H1B.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H2T.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.H2B.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.MPT.toFixed(2)},`;
+            csv += `${zoneData.overlap.percentages.MPB.toFixed(2)}`;
         }
         
         const filename = this.generateFilename(`${this.baseFilename}_zone_info`, 'csv');
