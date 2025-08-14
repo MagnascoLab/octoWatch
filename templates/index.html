@@ -392,11 +392,18 @@
                             <input type="checkbox" id="showSpatialHeatmap">
                             Show Spatial Heatmap
                         </label>
-                        <div id="heatmapAlphaContainer" style="display: none; margin-top: 8px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; align-items: center; gap: 10px;">
-                            <span style="font-size: 12px; color: #666; font-weight: 500;">Alpha:</span>
-                            <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 120px; cursor: pointer;">
-                            <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 35px; font-weight: 500; color: #333;">0.70</span>
+                        <div id="heatmapAlphaContainer" style="display: none; margin-top: 8px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 12px; color: #666; font-weight: 500;">Alpha:</span>
+                                <input type="range" id="heatmapAlphaSlider" min="0" max="1" step="0.01" value="0.7" style="width: 120px; cursor: pointer;">
+                                <span id="heatmapAlphaValue" style="font-size: 12px; min-width: 35px; font-weight: 500; color: #333;">0.70</span>
+                            </div>
                         </div>
+                    <label id="viridisColormapLabel" style="margin-top: 8px; font-size: 12px; display: none; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="useViridisColormap" checked style="cursor: pointer;">
+                        <span style="color: #666; font-weight: 500;">Use Viridis Colormap</span>
+                    </label>
+
                     </div>
                     
                     <!-- Export Menu Dropdown -->

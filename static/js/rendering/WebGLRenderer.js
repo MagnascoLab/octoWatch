@@ -106,6 +106,7 @@ export class WebGLRenderer {
             this.uniforms.heatmapResolution = this.gl.getUniformLocation(this.heatmapShaderProgram, 'u_resolution');
             this.uniforms.heatmapTexture = this.gl.getUniformLocation(this.heatmapShaderProgram, 'u_heatmap');
             this.uniforms.heatmapOpacity = this.gl.getUniformLocation(this.heatmapShaderProgram, 'u_opacity');
+            this.uniforms.heatmapUseViridis = this.gl.getUniformLocation(this.heatmapShaderProgram, 'u_useViridis');
         }
 
         // Create buffers
@@ -665,7 +666,7 @@ export class WebGLRenderer {
      * @param {number} opacity - Heatmap opacity (0-1)
      * @param {string} side - Which side to draw ('left', 'right', or 'both')
      */
-    drawSpatialHeatmap(tankBbox, scaleX, scaleY, opacity = 0.7, side = 'both') {
+    drawSpatialHeatmap(tankBbox, scaleX, scaleY, opacity = 0.7, side = 'both', useViridis = false) {
         if (!this.heatmapData || !this.heatmapShaderProgram) return;
         const gl = this.gl;
         const videoWidth = this.canvas.width / scaleX;
@@ -681,6 +682,7 @@ export class WebGLRenderer {
         gl.useProgram(this.heatmapShaderProgram);
         gl.uniform2f(this.uniforms.heatmapResolution, this.canvas.width, this.canvas.height);
         gl.uniform1f(this.uniforms.heatmapOpacity, opacity);
+        gl.uniform1f(this.uniforms.heatmapUseViridis, useViridis ? 1.0 : 0.0);
         
         // Enable vertex attributes
         gl.enableVertexAttribArray(this.attributes.heatmapPosition);

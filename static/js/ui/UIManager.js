@@ -70,6 +70,8 @@ export class UIManager {
             heatmapAlphaContainer: document.getElementById('heatmapAlphaContainer'),
             heatmapAlphaSlider: document.getElementById('heatmapAlphaSlider'),
             heatmapAlphaValue: document.getElementById('heatmapAlphaValue'),
+            useViridisColormap: document.getElementById('useViridisColormap'),
+            viridisColormapLabel: document.getElementById('viridisColormapLabel'),
             
             // Export menu
             exportMenuBtn: document.getElementById('exportMenuBtn'),
@@ -154,6 +156,7 @@ export class UIManager {
             heatmapAlpha: DEFAULTS.HEATMAP_ALPHA,
             frequencyRank: DEFAULTS.FREQUENCY_RANK,
             showZoneVisualization: false,
+            useViridisColormap: true,
             deletionMode: false,
             deletionSelection: {
                 startProgress: null,
@@ -387,7 +390,8 @@ export class UIManager {
         
         this.elements.showSpatialHeatmap.addEventListener('change', () => {
             const isChecked = this.elements.showSpatialHeatmap.checked;
-            this.elements.heatmapAlphaContainer.style.display = isChecked ? 'flex' : 'none';
+            this.elements.heatmapAlphaContainer.style.display = isChecked ? 'block' : 'none';
+            this.elements.viridisColormapLabel.style.display = isChecked ? 'flex' : 'none';
             this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
                 control: 'showSpatialHeatmap',
                 value: isChecked
@@ -401,6 +405,15 @@ export class UIManager {
             this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
                 control: 'heatmapAlpha',
                 value: this.state.heatmapAlpha
+            });
+        });
+        
+        // Viridis colormap checkbox
+        this.elements.useViridisColormap.addEventListener('change', (e) => {
+            this.state.useViridisColormap = e.target.checked;
+            this.eventBus.emit(Events.UI_CONTROL_CHANGE, {
+                control: 'heatmapColormap',
+                value: this.state.useViridisColormap
             });
         });
         
@@ -1085,6 +1098,7 @@ export class UIManager {
             trajectoryAlpha: this.state.trajectoryAlpha,
             showSpatialHeatmap: this.elements.showSpatialHeatmap.checked,
             heatmapAlpha: this.state.heatmapAlpha,
+            useViridisColormap: this.state.useViridisColormap,
             activitySensitivity: this.state.activitySensitivity,
             proximitySensitivity: this.state.proximitySensitivity,
             activityMetric: this.elements.activityMetric.value,

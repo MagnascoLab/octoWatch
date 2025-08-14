@@ -143,6 +143,7 @@ export const SHADERS = {
         precision mediump float;
         uniform sampler2D u_heatmap;
         uniform float u_opacity;
+        uniform float u_useViridis;
         varying vec2 v_texCoord;
         
         // Viridis colormap approximation
@@ -157,10 +158,14 @@ export const SHADERS = {
                 return mix(c1, c2, (t - 0.5) * 2.0);
             }
         }
-        
         void main() {
             float value = texture2D(u_heatmap, v_texCoord).r;
-            vec3 color = viridis(value);
+            vec3 color;
+            if (u_useViridis > 0.5) {
+                color = viridis(value);
+            } else {
+                color = mix(vec3(1.0), vec3(0.0, 0.0, 0.7), sqrt(value)); // From white to blue
+            }
             gl_FragColor = vec4(color, u_opacity);
         }
     `

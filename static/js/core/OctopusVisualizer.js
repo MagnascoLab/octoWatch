@@ -362,6 +362,7 @@ export class OctopusVisualizer {
                 break;
                 
             case 'showSpatialHeatmap':
+            case 'heatmapColormap':
                 this.render();
                 break;
                 
@@ -474,7 +475,7 @@ export class OctopusVisualizer {
         
         // Draw spatial heatmap if enabled (draw first so it's in the background)
         if (uiState.showSpatialHeatmap && this.heatmapCalculator.isCalculated()) {
-            this.webglRenderer.drawSpatialHeatmap(tankBbox, scaleX, scaleY, uiState.heatmapAlpha, uiState.sideSelect);
+            this.webglRenderer.drawSpatialHeatmap(tankBbox, scaleX, scaleY, uiState.heatmapAlpha, uiState.sideSelect, uiState.useViridisColormap);
             this.performanceMonitor.incrementDrawCalls();
         }
         
@@ -814,15 +815,27 @@ export class OctopusVisualizer {
         const imageData = ctx.createImageData(width, height);
         const data = imageData.data;
         
-        // Use imported viridis colormap
+        // Get user's colormap preference
+        const useViridis = this.uiManager.getState().useViridisColormap;
         
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const idx = y * width + x;
                 const value = heatmapData[idx];
                 
-                // Get color from viridis colormap
-                const color = viridis(value);
+                let color;
+                if (useViridis) {
+                    // Use viridis colormap
+                    color = viridis(value);
+                } else {
+                    // Use white-to-blue gradient (matching the shader)
+                    const sqrtValue = Math.sqrt(value);
+                    color = [
+                        Math.floor((1.0 - sqrtValue * 1.0) * 255),  // R: from white (255) to blue (0)
+                        Math.floor((1.0 - sqrtValue * 1.0) * 255),  // G: from white (255) to blue (0)
+                        Math.floor((1.0 - sqrtValue * 0.3) * 255)   // B: from white (255) to blue (178)
+                    ];
+                }
                 
                 // Set pixel color
                 const pixelIdx = idx * 4;
