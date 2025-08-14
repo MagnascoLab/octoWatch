@@ -1324,17 +1324,17 @@ export class UIManager {
             // H1TO and H1BO in first column
             const otd1 = document.createElement('td');
             otd1.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
-            otd1.innerHTML = `<b>H1TO</b>:${data.overlap.percentages.H1T !== undefined ? data.overlap.percentages.H1T.toFixed(1) : '-'}<br><b>H1BO</b>:${data.overlap.percentages.H1B !== undefined ? data.overlap.percentages.H1B.toFixed(1) : '-'}`;
+            otd1.innerHTML = `<b>H1T</b>:${data.overlap.percentages.H1T !== undefined ? data.overlap.percentages.H1T.toFixed(1) : '-'}<br><b>H1B</b>:${data.overlap.percentages.H1B !== undefined ? data.overlap.percentages.H1B.toFixed(1) : '-'}`;
             overlapRow3.appendChild(otd1);
             // H2TO and H2BO in second column
             const otd2 = document.createElement('td');
             otd2.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
-            otd2.innerHTML = `<b>H2T</b>:${data.overlap.percentages.H2T !== undefined ? data.overlap.percentages.H2T.toFixed(1) : '-'}<br><b>H2BO</b>:${data.overlap.percentages.H2B !== undefined ? data.overlap.percentages.H2B.toFixed(1) : '-'}`;
+            otd2.innerHTML = `<b>H2T</b>:${data.overlap.percentages.H2T !== undefined ? data.overlap.percentages.H2T.toFixed(1) : '-'}<br><b>H2B</b>:${data.overlap.percentages.H2B !== undefined ? data.overlap.percentages.H2B.toFixed(1) : '-'}`;
             overlapRow3.appendChild(otd2);
             // MPTO and MPBO in third column
             const otd3 = document.createElement('td');
             otd3.style.cssText = 'padding: 2px 4px; border: 1px solid #e0e0e0; background: white; font-size: 10px;';
-            otd3.innerHTML = `<b>MPT</b>:${data.overlap.percentages.MPT !== undefined ? data.overlap.percentages.MPT.toFixed(1) : '-'}<br><b>MPBO</b>:${data.overlap.percentages.MPB !== undefined ? data.overlap.percentages.MPB.toFixed(1) : '-'}`;
+            otd3.innerHTML = `<b>MPT</b>:${data.overlap.percentages.MPT !== undefined ? data.overlap.percentages.MPT.toFixed(1) : '-'}<br><b>MPB</b>:${data.overlap.percentages.MPB !== undefined ? data.overlap.percentages.MPB.toFixed(1) : '-'}`;
             overlapRow3.appendChild(otd3);
             this.elements.overlapZoneDisplay.appendChild(overlapRow3);
         }
