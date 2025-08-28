@@ -437,10 +437,6 @@ export class OctopusVisualizer {
                     this.render();
                     this.heatmapRenderer.setCurrentFrame(newFrame);
                     this.heatmapRenderer.render();
-                    // Update box toggle buttons when frame changes
-                    if (this.bboxInteraction && this.bboxInteraction.isEnabled) {
-                        this.updateBoxToggleButtons();
-                    }
                 }
             }
             
@@ -1035,8 +1031,6 @@ export class OctopusVisualizer {
             // Pause video when entering edit mode
             this.videoPlayer.pause();
             this.bboxInteraction.enable();
-            // Update box toggle buttons when entering edit mode
-            this.updateBoxToggleButtons();
         }
     }
     
@@ -1056,7 +1050,6 @@ export class OctopusVisualizer {
         
         // Re-render to show the dragged position
         this.render();
-        this.updateSubmitButtonVisibility();
     }
     
     /**
@@ -1075,6 +1068,5 @@ export class OctopusVisualizer {
         
         // Re-render to show the resized position
         this.render();
-        this.updateSubmitButtonVisibility();
     }
 }

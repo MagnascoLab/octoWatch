@@ -677,7 +677,7 @@ def delete_keyframes(code):
     elif method == 'edit':
         # Handle edits (additions/modifications)
         if not bbox_update:
-            return jsonify({'error': 'bbox_update is required for edit method'}), 400
+            return jsonify({'error': 'No changes detected!'}), 400
         
         # Validate bbox_update structure
         if not isinstance(bbox_update, dict):
