@@ -341,8 +341,8 @@
             </div>
             <div style="margin-top:10px;margin-bottom:10px;" hidden>Frame: <span id="frameNumber">0</span></div>
             
-            <div class="controls" style="position: absolute;right: 10px; top:50px;max-width:250px;">
-                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div class="controls" style="position: absolute;right: 10px; top:50px;max-width:250px;z-index:1000;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <div id="deletionSideContainer" style="display: none;">
                         <label id="deletionName" style="margin-right: 10px;">Delete keyframes from:</label>
                         <select id="deletionSideSelect">
@@ -359,7 +359,20 @@
                                 <option value="infill">Infill (Interpolate)</option>
                             </select>
                         </div>
-                        
+                        <!-- Time Range Side Panel -->
+                        <div id="timeRangePanel" class="side-panel" style="display:none; margin-top: 12px;">
+                            <div style="font-weight: 600; margin-bottom: 6px;">Select Time Range</div>
+                            <div class="time-input-row">
+                                <label for="timeRangeStart" class="time-label">Start</label>
+                                <input id="timeRangeStart" type="text" class="time-input" placeholder="mm:ss (e.g., 0:26)">
+                            </div>
+                            <div class="time-input-row">
+                                <label for="timeRangeEnd" class="time-label">End</label>
+                                <input id="timeRangeEnd" type="text" class="time-input" placeholder="mm:ss (e.g., 1:27)">
+                            </div>
+                            <div class="time-hint" id="timeRangeHint"></div>
+                            <button id="applyTimeRangeBtn" class="primary-btn" style="width:100%; margin-top: 8px;">Apply Range…</button>
+                        </div>
                     </div>
                 </div>
             </div>

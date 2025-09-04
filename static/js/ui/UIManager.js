@@ -112,6 +112,12 @@ export class UIManager {
             deletionSideContainer: document.getElementById('deletionSideContainer'),
             deletionSideSelect: document.getElementById('deletionSideSelect'),
             deletionMethodSelect: document.getElementById('deletionMethodSelect'),
+            // Time range side panel (manual range input)
+            timeRangePanel: document.getElementById('timeRangePanel'),
+            timeRangeStart: document.getElementById('timeRangeStart'),
+            timeRangeEnd: document.getElementById('timeRangeEnd'),
+            applyTimeRangeBtn: document.getElementById('applyTimeRangeBtn'),
+            timeRangeHint: document.getElementById('timeRangeHint'),
             
             // Backups controls
             viewBackupsBtn: document.getElementById('viewBackupsBtn'),
@@ -564,6 +570,25 @@ export class UIManager {
         
         // Heatmap interaction (seeking and deletion selection)
         this.setupHeatmapInteraction();
+
+        // Manual time range apply button
+        if (this.elements.applyTimeRangeBtn) {
+            this.elements.applyTimeRangeBtn.addEventListener('click', () => {
+                this.applyManualTimeRange();
+            });
+        }
+
+        // Enter key triggers apply
+        if (this.elements.timeRangeStart) {
+            this.elements.timeRangeStart.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.applyManualTimeRange();
+            });
+        }
+        if (this.elements.timeRangeEnd) {
+            this.elements.timeRangeEnd.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.applyManualTimeRange();
+            });
+        }
     }
 
     /**
@@ -608,6 +633,8 @@ export class UIManager {
             const fps = data.keyframesData.video_info.fps || DEFAULTS.FPS;
             const totalFrames = data.keyframesData.video_info.total_frames_processed;
             this.elements.frameSlider.max = totalFrames;
+            // Update time range panel hint and step when data loads
+            this.updateTimeRangePanel(fps, totalFrames);
             
             // Show export button and zone analysis when data is loaded
             this.elements.exportMenuBtn.style.display = 'block';
@@ -1585,6 +1612,8 @@ export class UIManager {
             // Disable the "Delete Keyframes" button if in bbox edit mode
             this.elements.deleteKeyframesBtn.disabled = true;
             this.elements.deleteKeyframesBtn.classList.add('disabled');
+            // Show time range side panel
+            this.showTimeRangePanel();
         } else {
             document.getElementById('deletionName').innerText = 'Delete keyframes from:';
             document.getElementById('deleteConfirmText').innerHTML = 'Confirm Keyframe Deletion';
@@ -1610,6 +1639,8 @@ export class UIManager {
             this.elements.deleteKeyframesBtn.disabled = false;
             this.elements.deleteKeyframesBtn.classList.remove('disabled');
             this.eventBus.emit(Events.RENDER_REQUEST);
+            // Hide time range side panel
+            this.hideTimeRangePanel();
         }
     }
     
@@ -1658,6 +1689,8 @@ export class UIManager {
             // Disable the "Edit Bounding Boxes" button if in deletion mode
             this.elements.editBoundingBoxesBtn.disabled = true;
             this.elements.editBoundingBoxesBtn.classList.add('disabled');
+            // Show time range side panel
+            this.showTimeRangePanel();
         } else {
             // Exiting deletion mode
             this.elements.deleteKeyframesBtn.classList.remove('active');
@@ -1668,6 +1701,8 @@ export class UIManager {
             // Re-enable the "Edit Bounding Boxes" button
             this.elements.editBoundingBoxesBtn.disabled = false;
             this.elements.editBoundingBoxesBtn.classList.remove('disabled');
+            // Hide time range side panel
+            this.hideTimeRangePanel();
         }
         
         this.eventBus.emit(Events.DELETION_MODE_TOGGLE, { active: this.state.deletionMode });
@@ -1705,6 +1740,162 @@ export class UIManager {
             startProgress: null,
             endProgress: null
         });
+    }
+    
+    /**
+     * Update time range panel hint and input step
+     * @param {number} fps 
+     * @param {number} totalFrames 
+     */
+    updateTimeRangePanel(fps, totalFrames) {
+        if (!this.elements.timeRangeHint) return;
+        const duration = fps > 0 ? (totalFrames / fps) : 0;
+        this.elements.timeRangeHint.textContent = `Video FPS: ${fps.toFixed(2)} | Duration: ${duration.toFixed(2)}s | Format: mm:ss`;
+    }
+    
+    /** Show the manual time range panel */
+    showTimeRangePanel() {
+        if (!this.elements.timeRangePanel) return;
+        // Prefill with current frame time if available
+        const fps = this.keyframesData?.video_info?.fps || DEFAULTS.FPS;
+        const totalFrames = this.keyframesData?.video_info?.total_frames_processed || 0;
+        this.updateTimeRangePanel(fps, totalFrames);
+        const currentFrame = parseInt(this.elements.frameSlider?.value || '0');
+        const currentTime = fps > 0 ? currentFrame / fps : 0;
+        if (this.elements.timeRangeStart && (this.elements.timeRangeStart.value === '' || this.elements.timeRangeStart.value == null)) {
+            this.elements.timeRangeStart.value = this.formatTimecode(currentTime);
+        }
+        if (this.elements.timeRangeEnd && (this.elements.timeRangeEnd.value === '' || this.elements.timeRangeEnd.value == null)) {
+            this.elements.timeRangeEnd.value = this.formatTimecode(currentTime);
+        }
+        this.elements.timeRangePanel.style.display = 'block';
+    }
+    
+    /** Hide the manual time range panel */
+    hideTimeRangePanel() {
+        if (!this.elements.timeRangePanel) return;
+        this.elements.timeRangePanel.style.display = 'none';
+    }
+    
+    /**
+     * Apply manual time range selection: compute nearest frames and show confirmation
+     */
+    applyManualTimeRange() {
+        const fps = this.keyframesData?.video_info?.fps || DEFAULTS.FPS;
+        const totalFrames = this.keyframesData?.video_info?.total_frames_processed || 0;
+        if (!fps || !totalFrames) {
+            this.showError('Video metadata not loaded');
+            return;
+        }
+        const startStr = (this.elements.timeRangeStart?.value || '').trim();
+        const endStr = (this.elements.timeRangeEnd?.value || '').trim();
+        const startSec = this.parseTimecode(startStr);
+        const endSec = this.parseTimecode(endStr);
+        if (startSec == null || endSec == null) {
+            this.showError('Enter times as mm:ss (e.g., 0:26)');
+            return;
+        }
+        // Ensure start <= end
+        const s = Math.max(0, Math.min(startSec, endSec));
+        const e = Math.max(0, Math.max(startSec, endSec));
+        // Convert to frames rounding to nearest frame
+        let startFrame = Math.round(s * fps);
+        let endFrame = Math.round(e * fps);
+        // Clamp to valid frame indices
+        const maxIndex = Math.max(0, totalFrames - 1);
+        startFrame = Math.min(Math.max(0, startFrame), maxIndex);
+        endFrame = Math.min(Math.max(0, endFrame), maxIndex);
+        // Ensure at least one frame selected
+        if (endFrame < startFrame) {
+            const tmp = startFrame; startFrame = endFrame; endFrame = tmp;
+        }
+        if (endFrame === startFrame) {
+            this.showError('Range is too small. Select more than 1 frame.');
+            return;
+        }
+        this.showSelectionConfirmationWithFrames(startFrame, endFrame, fps);
+    }
+
+    /**
+     * Parse timecode in formats: mm:ss, m:ss, or raw seconds
+     * Returns seconds (float) or null if invalid
+     */
+    parseTimecode(str) {
+        if (!str) return null;
+        const s = String(str).trim();
+        if (s.includes(':')) {
+            const parts = s.split(':').map(p => p.trim());
+            if (parts.length === 2) {
+                const [mStr, secStr] = parts;
+                const m = Number(mStr);
+                const sec = Number(secStr);
+                if (!Number.isFinite(m) || !Number.isFinite(sec)) return null;
+                if (m < 0 || sec < 0 || sec >= 60) return null;
+                return m * 60 + sec;
+            } else if (parts.length === 3) {
+                const [hStr, mStr, secStr] = parts;
+                const h = Number(hStr); const m = Number(mStr); const sec = Number(secStr);
+                if (!Number.isFinite(h) || !Number.isFinite(m) || !Number.isFinite(sec)) return null;
+                if (h < 0 || m < 0 || m >= 60 || sec < 0 || sec >= 60) return null;
+                return h * 3600 + m * 60 + sec;
+            }
+            return null;
+        }
+        const num = Number(s);
+        return Number.isFinite(num) && num >= 0 ? num : null;
+    }
+
+    /**
+     * Format seconds as m:ss
+     */
+    formatTimecode(seconds) {
+        const total = Math.max(0, Math.round(seconds));
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+    }
+    
+    /**
+     * Populate and show confirmation modal from explicit frames
+     * @param {number} startFrame 
+     * @param {number} endFrame 
+     * @param {number} fps 
+     */
+    showSelectionConfirmationWithFrames(startFrame, endFrame, fps) {
+        const startTime = startFrame / fps;
+        const endTime = endFrame / fps;
+        const side = this.elements.deletionSideSelect.value;
+        const sideText = side === 'both' ? 'Both Sides' : (side === 'left' ? 'Left Side Only' : 'Right Side Only');
+        const method = this.state.bboxEditMode ? 'edit' : this.elements.deletionMethodSelect.value;
+        const methodText = method === 'delete' ? 'Delete' : (method === 'edit' ? 'Edit' : 'Infill (Interpolate)');
+
+        // Update modal text
+        if (method === 'delete') {
+            this.elements.keyframeDeletionMessage.textContent = 'This will delete all keyframes between the selected time range.';
+        } else if (method === 'edit') {
+            this.elements.keyframeDeletionMessage.textContent = 'This will edit the bounding boxes in the selected range.';
+        } else {
+            this.elements.keyframeDeletionMessage.textContent = 'This will replace keyframes in the selected range with interpolated values.';
+        }
+        this.elements.deletionSide.textContent = sideText;
+        this.elements.deletionMethod.textContent = methodText;
+        this.elements.deletionStartTime.textContent = `${startTime.toFixed(2)}s (frame ${startFrame})`;
+        this.elements.deletionEndTime.textContent = `${endTime.toFixed(2)}s (frame ${endFrame})`;
+        this.elements.deletionFrameCount.textContent = `${endFrame - startFrame + 1}`;
+
+        this.pendingDeletion = {
+            startTime,
+            endTime,
+            startFrame,
+            endFrame,
+            side,
+            method
+        };
+        if (this.state.bboxEditMode) {
+            this.pendingDeletion.method = 'edit';
+            this.pendingDeletion.bboxUpdate = this.visualizer.draggedBboxes;
+        }
+        this.showKeyframeDeletionModal();
     }
     
     /**
